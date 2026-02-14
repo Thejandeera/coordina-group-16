@@ -1,0 +1,6 @@
+@coordina_HostAddress = http://localhost:5134
+
+GET {{coordina_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
