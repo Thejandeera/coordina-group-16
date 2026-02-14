@@ -49,3 +49,6 @@ C:\Users\Lenovo\Desktop\3Y1S\CSP\assignment\codebase\backend\coordina\obj\Debug\
 C:\Users\Lenovo\Desktop\3Y1S\CSP\assignment\codebase\backend\coordina\obj\Debug\net9.0\coordina.pdb
 C:\Users\Lenovo\Desktop\3Y1S\CSP\assignment\codebase\backend\coordina\obj\Debug\net9.0\coordina.genruntimeconfig.cache
 C:\Users\Lenovo\Desktop\3Y1S\CSP\assignment\codebase\backend\coordina\obj\Debug\net9.0\ref\coordina.dll
+C:\Users\Lenovo\Desktop\3Y1S\CSP\assignment\codebase\backend\coordina\bin\Debug\net9.0\DotNetEnv.dll
+C:\Users\Lenovo\Desktop\3Y1S\CSP\assignment\codebase\backend\coordina\bin\Debug\net9.0\Sprache.dll
+C:\Users\Lenovo\Desktop\3Y1S\CSP\assignment\codebase\backend\coordina\obj\Debug\net9.0\coordina.sourcelink.json

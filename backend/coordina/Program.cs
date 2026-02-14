@@ -1,16 +1,29 @@
+using DotNetEnv;
 using coordina.TestManagement.Services;
 using coordina.TestManagement.Interface;
+
+
+Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
 
+string baseString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "";
+string dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "3306";
+string dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "";
+
+
+string masterConnectionString = $"{baseString}Port={dbPort};Pwd={dbPassword};";
+
+
+builder.Configuration["ConnectionStrings:DefaultConnection"] = masterConnectionString;
+
+
 builder.Services.AddControllers();
-
-
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// 2. ---> REGISTER YOUR NEW SERVICE HERE <---
+// Register your services
 builder.Services.AddScoped<ITestService, TestService>();
 
 var app = builder.Build();

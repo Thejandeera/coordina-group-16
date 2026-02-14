@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("coordina")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+40c7c4fa21e8ee840fe38f2191659307998cfd3a")]
 [assembly: System.Reflection.AssemblyProductAttribute("coordina")]
 [assembly: System.Reflection.AssemblyTitleAttribute("coordina")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
