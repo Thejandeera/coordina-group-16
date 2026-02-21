@@ -1,0 +1,6 @@
+@theme {
+  /* You can define custom community brand colors here later */
+  --color-brand-primary: #3b82f6; 
+}
+
+@import "tailwindcss";
