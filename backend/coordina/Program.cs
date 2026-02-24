@@ -7,16 +7,18 @@ Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
+var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost";
+var dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "3306";
+var dbUser = Environment.GetEnvironmentVariable("DB_USER") ?? "root";
+var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "xyz";
 
-string baseString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "";
-string dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "3306";
-string dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "";
+var connectionString =
+    $"Server={dbHost};Port={dbPort};Database=cepm_db;Uid={dbUser};Pwd={dbPassword};";
 
+// Update configuration so other services (like TestService) can use it
+builder.Configuration["ConnectionStrings:DefaultConnection"] = connectionString;
 
-string masterConnectionString = $"{baseString}Port={dbPort};Pwd={dbPassword};";
-
-
-builder.Configuration["ConnectionStrings:DefaultConnection"] = masterConnectionString;
+builder.Services.AddSingleton(new MySql.Data.MySqlClient.MySqlConnection(connectionString));
 
 
 builder.Services.AddControllers();
