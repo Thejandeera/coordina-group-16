@@ -1,0 +1,46 @@
+using coordina.UserManagement.Interface;
+using coordina.UserManagement.Models;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+
+namespace coordina.UserManagement.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    [Authorize]
+    public class UsersController : ControllerBase
+    {
+        private readonly IAuthService _authService;
+
+        public UsersController(IAuthService authService)
+        {
+            _authService = authService;
+        }
+
+        [HttpPatch("profile-image")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UpdateProfileImage([FromForm] UpdateProfileImageRequest request)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!long.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized(new { message = "Invalid access token." });
+            }
+
+            try
+            {
+                var imageUrl = await _authService.UpdateProfileImageAsync(userId, request.ProfileImage);
+                return Ok(new { message = "Profile image updated successfully", profileImageUrl = imageUrl });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+    }
+}
