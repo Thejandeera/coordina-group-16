@@ -15,20 +15,22 @@ Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
-var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? "localhost";
-var dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? "3306";
-var dbUser = Environment.GetEnvironmentVariable("DB_USER") ?? "root";
-var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? "xyz";
-var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? "coordina-api";
-var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? "coordina-client";
-var accessTokenSecret = Environment.GetEnvironmentVariable("JWT_ACCESS_SECRET") ?? "coordina_default_access_secret_change_me_32_chars";
-var refreshTokenSecret = Environment.GetEnvironmentVariable("JWT_REFRESH_SECRET") ?? "coordina_default_refresh_secret_change_me_32_chars";
+var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? throw new InvalidOperationException("DB_HOST environment variable is missing.");
+var dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? throw new InvalidOperationException("DB_PORT environment variable is missing.");
+var dbUser = Environment.GetEnvironmentVariable("DB_USER") ?? throw new InvalidOperationException("DB_USER environment variable is missing.");
+var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? throw new InvalidOperationException("DB_PASSWORD environment variable is missing.");
+var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? throw new InvalidOperationException("DB_NAME environment variable is missing.");
+var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? throw new InvalidOperationException("JWT_ISSUER environment variable is missing.");
+var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? throw new InvalidOperationException("JWT_AUDIENCE environment variable is missing.");
+var accessTokenSecret = Environment.GetEnvironmentVariable("JWT_ACCESS_SECRET") ?? throw new InvalidOperationException("JWT_ACCESS_SECRET environment variable is missing.");
+var refreshTokenSecret = Environment.GetEnvironmentVariable("JWT_REFRESH_SECRET") ?? throw new InvalidOperationException("JWT_REFRESH_SECRET environment variable is missing.");
 var cloudinaryCloudName = Environment.GetEnvironmentVariable("CLOUDINARY_CLOUD_NAME") ?? string.Empty;
 var cloudinaryApiKey = Environment.GetEnvironmentVariable("CLOUDINARY_API_KEY") ?? string.Empty;
 var cloudinaryApiSecret = Environment.GetEnvironmentVariable("CLOUDINARY_API_SECRET") ?? string.Empty;
+var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_URL") ?? throw new InvalidOperationException("FRONTEND_URL environment variable is missing.");
 
 var connectionString =
-    $"Server={dbHost};Port={dbPort};Database=ccrp_db;Uid={dbUser};Pwd={dbPassword};";
+    $"Server={dbHost};Port={dbPort};Database={dbName};Uid={dbUser};Pwd={dbPassword};";
 
 // Update configuration so other services (like TestService) can use it
 builder.Configuration["ConnectionStrings:DefaultConnection"] = connectionString;
@@ -76,10 +78,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy("FrontendPolicy", policy =>
     {
         policy.WithOrigins(
-                "http://localhost:5173",
-                "http://127.0.0.1:5173",
-                "https://localhost:5173",
-                "https://127.0.0.1:5173")
+                frontendUrl)
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
