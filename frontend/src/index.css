@@ -1,6 +1,10 @@
-@theme {
-  /* You can define custom community brand colors here later */
-  --color-brand-primary: #3b82f6; 
-}
-
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&display=swap");
 @import "tailwindcss";
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+  font-family: "Sora", "Segoe UI", sans-serif;
+}
