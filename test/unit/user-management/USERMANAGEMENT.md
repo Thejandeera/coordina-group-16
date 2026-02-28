@@ -37,6 +37,16 @@ Tests the `POST /api/Auth/login` endpoint. To comprehensively test the login API
 - **[Failure] Incorrect Password**: Provides a fully registered user identifier but pairs it with an invalid character string for the password. Expects `401 Unauthorized` or `400 Bad Request`.
 - **[Failure] Non-existent User**: Tries to authenticate against an unregistered identifier. Expects `401 Unauthorized`, `404 Not Found`, or `400 Bad Request`.
 
+---
+
+### 3. Frontend-Aligned Tests (`frontend-login.test.js`, `frontend-signup.test.js`)
+These tests mirror the exact data structure (camelCase) and validation logic used in the React frontend.
+
+**Key features:**
+- **Field Names**: Uses `identifier`, `password`, `username`, `email`, `phoneNumber`, `profileImage`.
+- **Frontend Validation Mirroring**: Verifies constraints like `username` length (>=3) and `password` complexity (uppercase, lowercase, and symbols) as defined in the frontend.
+- **Success Criteria**: Expects `200 OK` for valid login and `201 Created` for valid signup.
+
 ## Execution Protocol
 Verify the centralized API Backend service architecture is active on configured `localhost` networks (e.g., `localhost:5134`) manually prior to executing requests.
 
@@ -46,3 +56,4 @@ You can initiate the test suites seamlessly from the root structured `test/` dir
 npm install
 npm test
 ```
+
