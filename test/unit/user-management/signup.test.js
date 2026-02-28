@@ -4,25 +4,11 @@ const fs = require('fs');
 const path = require('path');
 
 const API_URL = 'http://localhost:5134/api/Auth/signup';
-const imagePath = path.join(__dirname, 'test-image.jpg');
+const imagePath = path.join(__dirname, '../../resources/man.png');
 
 describe('POST /api/Auth/signup', () => {
-    beforeAll(() => {
-        // Create a dummy image file if it doesn't exist
-        if (!fs.existsSync(imagePath)) {
-            const imgBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-            fs.writeFileSync(imagePath, Buffer.from(imgBase64, 'base64'));
-        }
-    });
 
-    afterAll(() => {
-        // Clean up
-        if (fs.existsSync(imagePath)) {
-            fs.unlinkSync(imagePath);
-        }
-    });
 
-    // Helper function to create FormData based on input
     const createSignupForm = (data) => {
         const form = new FormData();
         if (data.Username !== undefined) form.append('Username', data.Username);
@@ -51,22 +37,22 @@ describe('POST /api/Auth/signup', () => {
 
         const response = await axios.post(API_URL, form, {
             headers: form.getHeaders(),
-            validateStatus: () => true // Resolve on all statuses to test status codes
+            validateStatus: () => true
         });
 
-        // We expect 201 Created from a successful sign up
+
         expect(response.status).toBe(201);
     });
 
     test('Invalid case: Missing required fields', async () => {
-        const form = createSignupForm({}); // Empty form
+        const form = createSignupForm({});
 
         const response = await axios.post(API_URL, form, {
             headers: form.getHeaders(),
             validateStatus: () => true
         });
 
-        // We expect 400 Bad Request
+
         expect(response.status).toBe(400);
     });
 
@@ -143,7 +129,7 @@ describe('POST /api/Auth/signup', () => {
             Username: `user_${Date.now()}`,
             Email: `user_${Date.now()}@example.com`,
             Password: 'Password123!',
-            PhoneNumber: '12345678', // 8 digits
+            PhoneNumber: '12345678',
             ProfileImage: 'valid'
         });
 
@@ -161,7 +147,7 @@ describe('POST /api/Auth/signup', () => {
             Email: `user_${Date.now()}@example.com`,
             Password: 'Password123!',
             PhoneNumber: '1234567890'
-            // ProfileImage omitted
+
         });
 
         const response = await axios.post(API_URL, form, {

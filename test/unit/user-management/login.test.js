@@ -14,12 +14,7 @@ describe('POST /api/Auth/login', () => {
         const FormData = require('form-data');
         const fs = require('fs');
         const path = require('path');
-        const imagePath = path.join(__dirname, 'test-image.jpg');
-
-        if (!fs.existsSync(imagePath)) {
-            const imgBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-            fs.writeFileSync(imagePath, Buffer.from(imgBase64, 'base64'));
-        }
+        const imagePath = path.join(__dirname, '../../resources/man.png');
 
         const form = new FormData();
         form.append('Username', validUser.Username);
@@ -28,7 +23,7 @@ describe('POST /api/Auth/login', () => {
         form.append('PhoneNumber', '1' + Math.floor(100000000 + Math.random() * 900000000).toString());
         form.append('ProfileImage', fs.createReadStream(imagePath));
 
-        // Sign up the user to test login later
+
         try {
             await axios.post(SIGNUP_URL, form, {
                 headers: form.getHeaders(),
@@ -49,7 +44,7 @@ describe('POST /api/Auth/login', () => {
             validateStatus: () => true
         });
 
-        // Successful login returns 200 OK
+
         expect(response.status).toBe(200);
     });
 
@@ -63,7 +58,7 @@ describe('POST /api/Auth/login', () => {
             validateStatus: () => true
         });
 
-        // Successful login returns 200 OK
+
         expect(response.status).toBe(200);
     });
 
@@ -76,7 +71,7 @@ describe('POST /api/Auth/login', () => {
             validateStatus: () => true
         });
 
-        // Validation error
+
         expect(response.status).toBe(400);
     });
 
@@ -89,7 +84,7 @@ describe('POST /api/Auth/login', () => {
             validateStatus: () => true
         });
 
-        // Validation error
+
         expect(response.status).toBe(400);
     });
 
@@ -103,7 +98,7 @@ describe('POST /api/Auth/login', () => {
             validateStatus: () => true
         });
 
-        // Depending on logic, usually 401 Unauthorized or 400 Bad Request
+
         expect(response.status === 401 || response.status === 400).toBeTruthy();
     });
 
@@ -117,7 +112,7 @@ describe('POST /api/Auth/login', () => {
             validateStatus: () => true
         });
 
-        // Depending on implementation, might return 401 or 404/400
+
         expect(response.status === 401 || response.status === 400 || response.status === 404).toBeTruthy();
     });
 });
