@@ -1,136 +1,23 @@
 import { useState } from 'react'
 import Login from './components/Login'
 import Signup from './components/Signup'
-import { apiFetch, setAuthTokens } from './lib/authClient'
 
 const HAS_CUSTOM_API_BASE_URL = Boolean(import.meta.env.VITE_API_BASE_URL)
 
 function App() {
   const [mode, setMode] = useState('login')
-  const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState('')
-
-  const [loginForm, setLoginForm] = useState({
-    identifier: '',
-    password: '',
-  })
-
-  const [signUpForm, setSignUpForm] = useState({
-    username: '',
-    email: '',
-    password: '',
-    phoneNumber: '',
-    profileImage: null,
-  })
 
   const setNotice = (text, type) => {
     setMessage(text)
     setMessageType(type)
   }
 
-  const validateSignUp = () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$/
-    const phoneRegex = /^\d{10}$/
-
-    if (signUpForm.username.trim().length < 3) {
-      return 'Username must be at least 3 characters.'
-    }
-
-    if (!emailRegex.test(signUpForm.email.trim())) {
-      return 'Email must include a valid @ format.'
-    }
-
-    if (!passwordRegex.test(signUpForm.password)) {
-      return 'Password must be 8+ chars with uppercase, lowercase, and symbol.'
-    }
-
-    if (!phoneRegex.test(signUpForm.phoneNumber.trim())) {
-      return 'Phone number must contain exactly 10 digits.'
-    }
-
-    if (!signUpForm.profileImage) {
-      return 'Profile image is required.'
-    }
-
-    return null
-  }
-
-  const handleLoginSubmit = async (event) => {
-    event.preventDefault()
-    setLoading(true)
+  const setModeWithClearMessage = (nextMode) => {
+    setMode(nextMode)
     setMessage('')
-
-    try {
-      const response = await apiFetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginForm),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message ?? 'Login failed')
-      }
-
-      setAuthTokens(data)
-      setNotice('Login successful.', 'success')
-    } catch (error) {
-      setNotice(error.message, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSignUpSubmit = async (event) => {
-    event.preventDefault()
-
-    const validationError = validateSignUp()
-    if (validationError) {
-      setNotice(validationError, 'error')
-      return
-    }
-
-    setLoading(true)
-    setMessage('')
-
-    try {
-      const formData = new FormData()
-      formData.append('username', signUpForm.username)
-      formData.append('email', signUpForm.email)
-      formData.append('password', signUpForm.password)
-      formData.append('phoneNumber', signUpForm.phoneNumber)
-      if (signUpForm.profileImage) {
-        formData.append('profileImage', signUpForm.profileImage)
-      }
-
-      const response = await apiFetch('/api/auth/signup', {
-        method: 'POST',
-        body: formData,
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message ?? 'Sign up failed')
-      }
-
-      setNotice(data.message ?? 'Your Account created successfully', 'success')
-      setMode('login')
-      setSignUpForm({
-        username: '',
-        email: '',
-        password: '',
-        phoneNumber: '',
-        profileImage: null,
-      })
-    } catch (error) {
-      setNotice(error.message, 'error')
-    } finally {
-      setLoading(false)
-    }
+    setMessageType('')
   }
 
   return (
@@ -177,14 +64,14 @@ function App() {
             <button
               className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${mode === 'login' ? 'bg-[#0b2347] text-white' : 'text-[#385075]'}`}
               type="button"
-              onClick={() => setMode('login')}
+              onClick={() => setModeWithClearMessage('login')}
             >
               Login
             </button>
             <button
               className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${mode === 'signup' ? 'bg-[#0b2347] text-white' : 'text-[#385075]'}`}
               type="button"
-              onClick={() => setMode('signup')}
+              onClick={() => setModeWithClearMessage('signup')}
             >
               Sign Up
             </button>
@@ -192,17 +79,14 @@ function App() {
 
           {mode === 'login' ? (
             <Login
-              form={loginForm}
-              onChange={setLoginForm}
-              onSubmit={handleLoginSubmit}
-              loading={loading}
+              onSuccess={(notice) => setNotice(notice, 'success')}
+              onError={(notice) => setNotice(notice, 'error')}
             />
           ) : (
             <Signup
-              form={signUpForm}
-              onChange={setSignUpForm}
-              onSubmit={handleSignUpSubmit}
-              loading={loading}
+              onSuccess={(notice) => setNotice(notice, 'success')}
+              onError={(notice) => setNotice(notice, 'error')}
+              onSignedUp={() => setMode('login')}
             />
           )}
 
