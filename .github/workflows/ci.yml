@@ -10,6 +10,16 @@ jobs:
     test-suite:
         runs-on: ubuntu-latest
 
+        services:
+            mysql:
+                image: mysql:8.0
+                env:
+                    MYSQL_ROOT_PASSWORD: ci_dummy_password
+                    MYSQL_DATABASE: ccrp_db
+                ports:
+                    - 3306:3306
+                options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
         steps:
             - name: Checkout Code
               uses: actions/checkout@v4
@@ -18,6 +28,25 @@ jobs:
               uses: actions/setup-dotnet@v4
               with:
                   dotnet-version: "9.0.x"
+
+            - name: Create .env file
+              working-directory: ./backend/coordina
+              run: |
+                  cat << EOF > .env
+                  FRONTEND_URL=http://localhost:5173
+                  DB_PORT=3306
+                  DB_PASSWORD=ci_dummy_password
+                  DB_HOST=127.0.0.1
+                  DB_USER=root
+                  DB_NAME=ccrp_db
+                  JWT_ISSUER=coordina-api
+                  JWT_AUDIENCE=coordina-client
+                  JWT_ACCESS_SECRET=${{ secrets.JWT_ACCESS_SECRET }}
+                  JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+                  CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME }}
+                  CLOUDINARY_API_KEY=${{ secrets.CLOUDINARY_API_KEY }}
+                  CLOUDINARY_API_SECRET=${{ secrets.CLOUDINARY_API_SECRET }}
+                  EOF
 
             - name: Restore Backend Dependencies
               working-directory: ./backend/coordina
