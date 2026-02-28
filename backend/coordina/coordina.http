@@ -1,6 +1,68 @@
 @coordina_HostAddress = http://localhost:5134
+@accessToken = YOUR_ACCESS_TOKEN
+@refreshToken = YOUR_REFRESH_TOKEN
 
 GET {{coordina_HostAddress}}/weatherforecast/
 Accept: application/json
+
+###
+GET {{coordina_HostAddress}}/api/tests
+Accept: application/json
+
+###
+POST {{coordina_HostAddress}}/api/auth/signup
+Content-Type: multipart/form-data; boundary=Boundary_123
+
+--Boundary_123
+Content-Disposition: form-data; name="username"
+
+john.doe
+--Boundary_123
+Content-Disposition: form-data; name="email"
+
+john@example.com
+--Boundary_123
+Content-Disposition: form-data; name="password"
+
+Password@123
+--Boundary_123
+Content-Disposition: form-data; name="phoneNumber"
+
+0771234567
+--Boundary_123
+Content-Disposition: form-data; name="profileImage"; filename="avatar.jpg"
+Content-Type: image/jpeg
+
+< ./avatar.jpg
+--Boundary_123--
+
+###
+POST {{coordina_HostAddress}}/api/auth/login
+Content-Type: application/json
+
+{
+  "identifier": "john@example.com",
+  "password": "Password@123"
+}
+
+###
+POST {{coordina_HostAddress}}/api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "{{refreshToken}}"
+}
+
+###
+PATCH {{coordina_HostAddress}}/api/users/profile-image
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=Boundary_124
+
+--Boundary_124
+Content-Disposition: form-data; name="profileImage"; filename="avatar-new.jpg"
+Content-Type: image/jpeg
+
+< ./avatar-new.jpg
+--Boundary_124--
 
 ###
