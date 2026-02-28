@@ -1,0 +1,51 @@
+name: Run Tests CI
+
+on:
+    push:
+        branches:
+            - "**"
+    create:
+
+jobs:
+    test-suite:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup .NET
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: "9.0.x"
+
+            - name: Restore Backend Dependencies
+              working-directory: ./backend/coordina
+              run: dotnet restore
+
+            - name: Build Backend
+              working-directory: ./backend/coordina
+              run: dotnet build --no-restore
+
+            - name: Start .NET Backend
+              working-directory: ./backend/coordina
+              run: dotnet run --no-build &
+              env:
+                  ASPNETCORE_ENVIRONMENT: Development
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+
+            - name: Install Test Dependencies
+              working-directory: ./test
+              run: npm ci
+
+            - name: Wait for Backend to be Ready
+              working-directory: ./test
+              run: npx wait-on http://localhost:5134/api/Auth/signup -t 30000
+
+            - name: Run All Tests
+              working-directory: ./test
+              run: npm test
