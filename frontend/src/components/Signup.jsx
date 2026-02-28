@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { apiFetch } from '../lib/authClient'
+import { apiFetch, readJsonSafe } from '../lib/authClient'
 
 function Signup({ onSuccess, onError, onSignedUp }) {
   const [loading, setLoading] = useState(false)
@@ -59,12 +59,12 @@ function Signup({ onSuccess, onError, onSignedUp }) {
         body: formData,
       })
 
-      const data = await response.json()
+      const data = await readJsonSafe(response)
       if (!response.ok) {
-        throw new Error(data.message ?? 'Sign up failed')
+        throw new Error(data?.message ?? 'Sign up failed')
       }
 
-      onSuccess?.(data.message ?? 'Your Account created successfully')
+      onSuccess?.(data?.message ?? 'Your Account created successfully')
       setForm({
         username: '',
         email: '',

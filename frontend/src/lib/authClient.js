@@ -1,8 +1,13 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5134'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
+
+if (!API_BASE_URL) {
+  throw new Error('Missing VITE_API_BASE_URL in frontend environment variables.')
+}
 
 const ACCESS_TOKEN_KEY = 'accessToken'
 const REFRESH_TOKEN_KEY = 'refreshToken'
 const ACCESS_TOKEN_EXPIRES_AT_KEY = 'accessTokenExpiresAt'
+const USER_DATA_KEY = 'userData'
 
 const toAbsoluteUrl = (path) => {
   if (path.startsWith('http://') || path.startsWith('https://')) {
@@ -35,8 +40,43 @@ export const clearAuthTokens = () => {
   localStorage.removeItem(ACCESS_TOKEN_EXPIRES_AT_KEY)
 }
 
+export const getSessionUserData = () => {
+  const raw = sessionStorage.getItem(USER_DATA_KEY)
+  if (!raw) {
+    return null
+  }
+
+  try {
+    return JSON.parse(raw)
+  } catch {
+    sessionStorage.removeItem(USER_DATA_KEY)
+    return null
+  }
+}
+
+export const setSessionUserData = (userData) => {
+  sessionStorage.setItem(USER_DATA_KEY, JSON.stringify(userData))
+}
+
+export const clearSessionUserData = () => {
+  sessionStorage.removeItem(USER_DATA_KEY)
+}
+
 export const apiFetch = async (path, options = {}) => {
   return fetch(toAbsoluteUrl(path), options)
+}
+
+export const readJsonSafe = async (response) => {
+  const raw = await response.text()
+  if (!raw) {
+    return null
+  }
+
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
 }
 
 const refreshAccessToken = async () => {
@@ -53,10 +93,16 @@ const refreshAccessToken = async () => {
 
   if (!response.ok) {
     clearAuthTokens()
+    clearSessionUserData()
     throw new Error('Session expired. Please login again.')
   }
 
-  const data = await response.json()
+  const data = await readJsonSafe(response)
+  if (!data?.accessToken) {
+    clearAuthTokens()
+    clearSessionUserData()
+    throw new Error('Session expired. Please login again.')
+  }
   setAuthTokens(data)
 
   return data.accessToken

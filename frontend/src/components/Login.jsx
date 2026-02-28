@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { apiFetch, setAuthTokens } from '../lib/authClient'
+import { apiFetch, authFetch, readJsonSafe, setAuthTokens, setSessionUserData } from '../lib/authClient'
 
-function Login({ onSuccess, onError }) {
+function Login({ onSuccess, onError, onLoggedIn }) {
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
     identifier: '',
@@ -19,12 +19,36 @@ function Login({ onSuccess, onError }) {
         body: JSON.stringify(form),
       })
 
-      const data = await response.json()
+      const data = await readJsonSafe(response)
       if (!response.ok) {
-        throw new Error(data.message ?? 'Login failed')
+        throw new Error(data?.message ?? 'Login failed')
+      }
+      if (!data?.accessToken || !data?.refreshToken) {
+        throw new Error('Login response is invalid.')
       }
 
       setAuthTokens(data)
+      let profileData = null
+
+      try {
+        const profileResponse = await authFetch('/api/users/me')
+        const apiProfile = await readJsonSafe(profileResponse)
+        if (profileResponse.ok && apiProfile) {
+          profileData = apiProfile
+        }
+      } catch {
+        profileData = null
+      }
+
+      if (!profileData) {
+        profileData = getFallbackUserFromToken(data.accessToken)
+      }
+      if (!profileData) {
+        throw new Error('Login succeeded but failed to load user profile.')
+      }
+
+      setSessionUserData(profileData)
+      onLoggedIn?.(profileData)
       onSuccess?.('Login successful.')
     } catch (error) {
       onError?.(error.message)
@@ -68,6 +92,33 @@ function Login({ onSuccess, onError }) {
       </button>
     </form>
   )
+}
+
+const getFallbackUserFromToken = (accessToken) => {
+  try {
+    const parts = accessToken.split('.')
+    if (parts.length < 2) {
+      return null
+    }
+
+    const payload = parts[1]
+      .replace(/-/g, '+')
+      .replace(/_/g, '/')
+      .padEnd(Math.ceil(parts[1].length / 4) * 4, '=')
+    const claims = JSON.parse(atob(payload))
+
+    return {
+      id: claims['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] ?? null,
+      username: claims['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] ?? 'User',
+      email:
+        claims['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] ??
+        claims.email ??
+        '',
+      phoneNumber: '',
+    }
+  } catch {
+    return null
+  }
 }
 
 export default Login
