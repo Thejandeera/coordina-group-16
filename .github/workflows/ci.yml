@@ -1,0 +1,46 @@
+name: Build and Lint CI
+
+on:
+    push:
+        branches:
+            - "**"
+
+jobs:
+    validate-backend:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup .NET
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: "9.0.x"
+
+            - name: Build Backend
+              working-directory: ./backend/coordina
+              run: dotnet build
+
+            - name: Check Formatting
+              working-directory: ./backend/coordina
+              # THE FIX: Explicitly specify 'coordina.sln' so the formatter knows what to target
+              run: dotnet format coordina.sln --verify-no-changes
+
+    validate-frontend-and-tests:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout Code
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "20"
+
+            - name: Install Dependencies
+              working-directory: ./test
+              run: npm ci
+
+            - name: Run Linter
+              working-directory: ./test
+              run: npm run lint --if-present
