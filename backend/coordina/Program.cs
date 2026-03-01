@@ -11,7 +11,7 @@ using MySql.Data.MySqlClient;
 using System.Text;
 
 
-Env.TraversePath().Load();
+Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
