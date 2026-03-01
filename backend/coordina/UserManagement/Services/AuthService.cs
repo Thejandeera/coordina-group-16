@@ -11,6 +11,7 @@ using System.Data.Common;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace coordina.UserManagement.Services
 {
@@ -152,6 +153,78 @@ namespace coordina.UserManagement.Services
             };
         }
 
+        public async Task<UserProfileResponse> UpdateProfileAsync(long userId, UpdateProfileRequest request)
+        {
+            await EnsureUsersTableAsync();
+
+            var user = await GetUserByIdAsync(userId);
+            if (user is null)
+            {
+                throw new KeyNotFoundException("User not found.");
+            }
+
+            var nextUsername = request.Username.Trim();
+            var nextPhoneNumber = request.PhoneNumber.Trim();
+
+            if (nextUsername.Length < 3)
+            {
+                throw new InvalidOperationException("Username must be at least 3 characters.");
+            }
+
+            if (!Regex.IsMatch(nextPhoneNumber, @"^\d{10}$"))
+            {
+                throw new InvalidOperationException("Phone number must contain exactly 10 digits.");
+            }
+
+            if (await IsUsernameTakenByAnotherUserAsync(userId, nextUsername))
+            {
+                throw new InvalidOperationException("Username is already taken.");
+            }
+
+            string? nextPasswordHash = null;
+            var wantsPasswordUpdate = !string.IsNullOrWhiteSpace(request.NewPassword) ||
+                                      !string.IsNullOrWhiteSpace(request.CurrentPassword);
+
+            if (wantsPasswordUpdate)
+            {
+                if (string.IsNullOrWhiteSpace(request.CurrentPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
+                {
+                    throw new InvalidOperationException("Current password and new password are required to change password.");
+                }
+
+                if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
+                {
+                    throw new InvalidOperationException("Current password is incorrect.");
+                }
+
+                if (!Regex.IsMatch(request.NewPassword, @"^(?=.*[a-z])(?=.*[A-Z])(?=.*[^a-zA-Z0-9]).{8,}$"))
+                {
+                    throw new InvalidOperationException("Password must be 8+ chars with uppercase, lowercase, and symbol.");
+                }
+
+                nextPasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            }
+
+            using var connection = new MySqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            const string query = @"
+                UPDATE Users
+                SET Username = @Username,
+                    PhoneNumber = @PhoneNumber,
+                    PasswordHash = COALESCE(@PasswordHash, PasswordHash)
+                WHERE Id = @Id;";
+
+            using var command = new MySqlCommand(query, connection);
+            command.Parameters.AddWithValue("@Username", nextUsername);
+            command.Parameters.AddWithValue("@PhoneNumber", nextPhoneNumber);
+            command.Parameters.AddWithValue("@PasswordHash", nextPasswordHash ?? (object)DBNull.Value);
+            command.Parameters.AddWithValue("@Id", userId);
+            await command.ExecuteNonQueryAsync();
+
+            return await GetCurrentUserAsync(userId);
+        }
+
         public async Task<string> UpdateProfileImageAsync(long userId, IFormFile profileImage)
         {
             await EnsureUsersTableAsync();
@@ -240,6 +313,26 @@ namespace coordina.UserManagement.Services
             }
 
             return MapUser(reader);
+        }
+
+        private async Task<bool> IsUsernameTakenByAnotherUserAsync(long userId, string username)
+        {
+            using var connection = new MySqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            const string query = @"
+                SELECT 1
+                FROM Users
+                WHERE LOWER(Username) = LOWER(@Username)
+                  AND Id <> @Id
+                LIMIT 1;";
+
+            using var command = new MySqlCommand(query, connection);
+            command.Parameters.AddWithValue("@Username", username);
+            command.Parameters.AddWithValue("@Id", userId);
+
+            var result = await command.ExecuteScalarAsync();
+            return result is not null;
         }
 
         private static UserEntity MapUser(DbDataReader reader)
