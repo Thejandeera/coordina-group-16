@@ -42,7 +42,7 @@ function App() {
         element={user ? <Navigate to="/dashboard" replace /> : <Signup />}
       />
       <Route
-        path="/dashboard"
+        path="/dashboard/*"
         element={user ? <Dashboard user={user} onLogout={handleLogout} onUserRefresh={setUser} /> : <Navigate to="/login" replace />}
       />
       <Route path="/" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />
