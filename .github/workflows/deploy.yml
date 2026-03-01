@@ -47,6 +47,8 @@ jobs:
                   context: ./frontend
                   push: true
                   tags: ${{ secrets.DOCKERHUB_USERNAME }}/coordina-frontend:latest
+                  build-args: |
+                      VITE_API_BASE_URL=https://coordina-backend-a6b6gggvb9ewd2e8.westindia-01.azurewebsites.net
 
             - name: Deploy UI to Azure
               uses: azure/webapps-deploy@v2
