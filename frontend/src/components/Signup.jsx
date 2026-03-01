@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch, readJsonSafe } from '../lib/authClient'
 
-function Signup() {
+function Signup({ loginPath = '/login' }) {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
@@ -83,7 +83,7 @@ function Signup() {
         phoneNumber: '',
         profileImage: null,
       })
-      navigate('/login')
+      navigate(loginPath)
     } catch (error) {
       setNotice(error.message, 'error')
     } finally {
@@ -133,7 +133,7 @@ function Signup() {
             <button
               className="rounded-lg px-3 py-2 text-sm font-semibold transition text-[#385075]"
               type="button"
-              onClick={() => navigate('/login')}
+              onClick={() => navigate(loginPath)}
             >
               Login
             </button>
