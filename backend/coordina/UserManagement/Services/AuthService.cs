@@ -131,6 +131,27 @@ namespace coordina.UserManagement.Services
             };
         }
 
+        public async Task<UserProfileResponse> GetCurrentUserAsync(long userId)
+        {
+            await EnsureUsersTableAsync();
+
+            var user = await GetUserByIdAsync(userId);
+            if (user is null)
+            {
+                throw new KeyNotFoundException("User not found.");
+            }
+
+            return new UserProfileResponse
+            {
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                PhoneNumber = user.PhoneNumber,
+                ProfileImageUrl = user.ProfileImageUrl,
+                CreatedAt = user.CreatedAt
+            };
+        }
+
         public async Task<string> UpdateProfileImageAsync(long userId, IFormFile profileImage)
         {
             await EnsureUsersTableAsync();

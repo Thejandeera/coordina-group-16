@@ -18,6 +18,26 @@ namespace coordina.UserManagement.Controllers
             _authService = authService;
         }
 
+        [HttpGet("me")]
+        public async Task<IActionResult> GetCurrentUser()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!long.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized(new { message = "Invalid access token." });
+            }
+
+            try
+            {
+                var user = await _authService.GetCurrentUserAsync(userId);
+                return Ok(user);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+        }
+
         [HttpPatch("profile-image")]
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> UpdateProfileImage([FromForm] UpdateProfileImageRequest request)
