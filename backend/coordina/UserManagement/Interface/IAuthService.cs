@@ -8,6 +8,7 @@ namespace coordina.UserManagement.Interface
         Task<AuthResponse> LoginAsync(LoginRequest request);
         Task<AuthResponse> RefreshAccessTokenAsync(RefreshTokenRequest request);
         Task<UserProfileResponse> GetCurrentUserAsync(long userId);
+        Task<UserProfileResponse> UpdateProfileAsync(long userId, UpdateProfileRequest request);
         Task<string> UpdateProfileImageAsync(long userId, IFormFile profileImage);
     }
 }
