@@ -1,0 +1,56 @@
+name: Build and Deploy Full Stack
+
+on:
+    push:
+        branches: ["main"]
+
+jobs:
+    build-and-deploy-api:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Log in to Docker Hub
+              uses: docker/login-action@v3
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+            - name: Build and push API image
+              uses: docker/build-push-action@v5
+              with:
+                  context: ./backend
+                  push: true
+                  tags: ${{ secrets.DOCKERHUB_USERNAME }}/coordina-backend:latest
+
+            - name: Deploy API to Azure
+              uses: azure/webapps-deploy@v2
+              with:
+                  app-name: "coordina-backend"
+                  publish-profile: ${{ secrets.AZURE_BACKEND_PUBLISH_PROFILE }}
+                  images: "${{ secrets.DOCKERHUB_USERNAME }}/coordina-backend:latest"
+
+    build-and-deploy-ui:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Log in to Docker Hub
+              uses: docker/login-action@v3
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+            - name: Build and push UI image
+              uses: docker/build-push-action@v5
+              with:
+                  context: ./frontend
+                  push: true
+                  tags: ${{ secrets.DOCKERHUB_USERNAME }}/coordina-frontend:latest
+
+            - name: Deploy UI to Azure
+              uses: azure/webapps-deploy@v2
+              with:
+                  app-name: "coordina-frontend"
+                  publish-profile: ${{ secrets.AZURE_FRONTEND_PUBLISH_PROFILE }}
+                  images: "${{ secrets.DOCKERHUB_USERNAME }}/coordina-frontend:latest"
