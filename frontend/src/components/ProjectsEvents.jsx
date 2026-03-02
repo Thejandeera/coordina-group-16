@@ -175,7 +175,7 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
     <section className="mt-6">
       <div className="rounded-2xl bg-[var(--surface-bg)] px-5 py-6 shadow-sm" style={{ boxShadow: 'var(--surface-shadow)' }}>
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-[36px] font-extrabold leading-none text-slate-900">Projects &amp; Events</h2>
+          <h2 className="text-[36px] font-extrabold leading-none text-[var(--text-main)]">Projects &amp; Events</h2>
           <button
             type="button"
             onClick={openCreateModal}
@@ -191,12 +191,12 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search..."
-            className="h-12 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 text-lg text-slate-800 outline-none focus:border-orange-500"
+            className="h-12 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 text-lg text-[var(--text-main)] outline-none focus:border-orange-500"
           />
           <select
             value={typeFilter}
             onChange={(event) => setTypeFilter(event.target.value)}
-            className="h-12 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 text-lg text-slate-800 outline-none focus:border-orange-500"
+            className="h-12 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 text-lg text-[var(--text-main)] outline-none focus:border-orange-500"
           >
             {typeOptions.map((option) => (
               <option key={option} value={option}>
@@ -253,7 +253,7 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
               return (
                 <article key={item.id} className="rounded-2xl border border-[var(--surface-border)] px-5 py-5">
                   <div className="flex items-start justify-between gap-3">
-                    <h3 className="text-[34px] font-bold leading-tight text-slate-900">{item.name}</h3>
+                    <h3 className="text-[34px] font-bold leading-tight text-[var(--text-main)]">{item.name}</h3>
                     <div className="relative">
                       <button 
                         type="button" 
@@ -308,7 +308,7 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
 
                   {item.goals && (
                     <p className="mt-3 text-sm text-[var(--text-muted)]">
-                      <span className="font-semibold text-slate-800">Goals:</span> {item.goals}
+                      <span className="font-semibold text-[var(--text-main)]">Goals:</span> {item.goals}
                     </p>
                   )}
 
@@ -348,7 +348,7 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
             aria-labelledby="modal-title"
           >
             <div className="flex items-center justify-between">
-              <h3 id="modal-title" className="text-3xl font-bold text-slate-900">
+              <h3 id="modal-title" className="text-3xl font-bold text-[var(--text-main)]">
                 {editItem ? 'Edit Entity' : 'Create Entity'}
               </h3>
               <button
@@ -362,7 +362,7 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
             </div>
 
             <form className="mt-4 grid gap-4" onSubmit={handleSubmit}>
-              <label className="grid gap-2 text-xl font-semibold text-slate-900">
+              <label className="grid gap-2 text-xl font-semibold text-[var(--text-main)]">
                 Name
                 <input
                   type="text"
@@ -373,7 +373,7 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
                 />
               </label>
 
-              <label className="grid gap-2 text-xl font-semibold text-slate-900">
+              <label className="grid gap-2 text-xl font-semibold text-[var(--text-main)]">
                 Type
                 <select
                   name="type"
@@ -387,7 +387,7 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
                 </select>
               </label>
 
-              <label className="grid gap-2 text-xl font-semibold text-slate-900">
+              <label className="grid gap-2 text-xl font-semibold text-[var(--text-main)]">
                 Description
                 <textarea
                   name="description"
@@ -398,7 +398,7 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
               </label>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="grid gap-2 text-xl font-semibold text-slate-900">
+                <label className="grid gap-2 text-xl font-semibold text-[var(--text-main)]">
                   Start
                   <input
                     type="date"
@@ -409,7 +409,7 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
                   />
                 </label>
 
-                <label className="grid gap-2 text-xl font-semibold text-slate-900">
+                <label className="grid gap-2 text-xl font-semibold text-[var(--text-main)]">
                   End
                   <input
                     type="date"
@@ -421,7 +421,7 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
               </div>
 
               {(formType === 'Project' || formType === 'Event') && (
-                <label className="grid gap-2 text-xl font-semibold text-slate-900">
+                <label className="grid gap-2 text-xl font-semibold text-[var(--text-main)]">
                   Members Count
                   <input
                     type="number"
@@ -435,7 +435,7 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
 
               {formType === 'Donation Drive' && (
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="grid gap-2 text-xl font-semibold text-slate-900">
+                  <label className="grid gap-2 text-xl font-semibold text-[var(--text-main)]">
                     Raised Amount (LKR)
                     <input
                       type="number"
@@ -447,7 +447,7 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
                     />
                   </label>
 
-                  <label className="grid gap-2 text-xl font-semibold text-slate-900">
+                  <label className="grid gap-2 text-xl font-semibold text-[var(--text-main)]">
                     Goal Amount (LKR)
                     <input
                       type="number"
@@ -460,7 +460,7 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
                     />
                   </label>
                   
-                  <label className="grid gap-2 text-xl font-semibold text-slate-900 sm:col-span-2">
+                  <label className="grid gap-2 text-xl font-semibold text-[var(--text-main)] sm:col-span-2">
                     Padlet Evidence Link
                     <input
                       type="url"
@@ -473,7 +473,7 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
                 </div>
               )}
 
-              <label className="grid gap-2 text-xl font-semibold text-slate-900">
+              <label className="grid gap-2 text-xl font-semibold text-[var(--text-main)]">
                 Goals
                 <input
                   type="text"

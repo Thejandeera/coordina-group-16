@@ -5,11 +5,13 @@ import Sidebar from './Sidebar'
 import UpdateProfile from './UpdateProfile'
 import ProjectsEvents from './ProjectsEvents'
 
-const navItems = ['Dashboard', 'Projects & Events', 'Bookings', 'Analytics', 'Settings']
+const navItems = ['Dashboard', 'Projects & Events', 'Bookings', 'Calendar', 'Forms', 'Analytics', 'Settings']
 const defaultPaths = {
   dashboard: '/dashboard',
   projectsEvents: '/projects-events',
   bookings: '/bookings',
+  calendar: '/calendar',
+  forms: '/forms',
   analytics: '/analytics',
   settings: '/settings',
 }
@@ -55,6 +57,8 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
   const dashboardPath = resolvedPaths.dashboard
   const projectsEventsPath = resolvedPaths.projectsEvents
   const bookingsPath = resolvedPaths.bookings
+  const calendarPath = resolvedPaths.calendar
+  const formsPath = resolvedPaths.forms
   const analyticsPath = resolvedPaths.analytics
   const settingsPath = resolvedPaths.settings
 
@@ -62,6 +66,8 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
     Dashboard: dashboardPath,
     'Projects & Events': projectsEventsPath,
     Bookings: bookingsPath,
+    Calendar: calendarPath,
+    Forms: formsPath,
     Analytics: analyticsPath,
     Settings: settingsPath,
   }
@@ -117,13 +123,17 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
       nextActive = 'Projects & Events'
     } else if (normalizedPath === bookingsPath) {
       nextActive = 'Bookings'
+    } else if (normalizedPath === calendarPath) {
+      nextActive = 'Calendar'
+    } else if (normalizedPath === formsPath) {
+      nextActive = 'Forms'
     } else if (normalizedPath === analyticsPath) {
       nextActive = 'Analytics'
     } else if (normalizedPath === settingsPath) {
       nextActive = 'Settings'
     }
     setActiveNav(nextActive)
-  }, [analyticsPath, bookingsPath, dashboardPath, location.pathname, projectsEventsPath, settingsPath])
+  }, [analyticsPath, bookingsPath, calendarPath, dashboardPath, formsPath, location.pathname, projectsEventsPath, settingsPath])
 
   useEffect(() => {
     setForm((prev) => ({
@@ -203,8 +213,8 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
         setDashboardNotice({ text: '', type: '' })
 
         setDashboardStats([
-          { label: 'Active Projects', value: String(data.activeProjects ?? 0) },
-          { label: 'Upcoming Events', value: String(data.upcomingEvents ?? 0) },
+          { label: 'Active projects and events', value: String(data.activeProjects ?? 0) },
+          { label: 'Upcoming Events and Projects', value: String(data.upcomingEvents ?? 0) },
           { label: 'Pending Tasks', value: String(data.pendingTasks ?? 0) },
           { label: 'Donations Raised', value: `LKR ${Number(data.donationsRaised ?? 0).toLocaleString()}` },
         ])
@@ -427,28 +437,12 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
 
         <main className="h-screen overflow-y-auto px-4 pb-7 pt-4 sm:px-6">
           <header className="flex flex-wrap items-center gap-3 rounded-2xl bg-[var(--surface-bg)] px-5 py-3 shadow-sm" style={{ boxShadow: 'var(--surface-shadow)' }}>
-            {activeNav !== 'Projects & Events' && (
-              <>
-                <input
-                  type="search"
-                  placeholder="Search..."
-                  className="h-10 flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 text-sm text-[var(--text-main)] outline-none focus:border-[#f97316]"
-                />
-                <button
-                  type="button"
-                  onClick={() => goToSection('Projects & Events')}
-                  className="rounded-xl border border-[#153865] px-5 py-2.5 text-sm font-semibold text-[#153865]"
-                >
-                  New Project
-                </button>
-                <button
-                  type="button"
-                  onClick={() => goToSection('Bookings')}
-                  className="rounded-xl border border-[#153865] px-5 py-2.5 text-sm font-semibold text-[#153865]"
-                >
-                  Book Resource
-                </button>
-              </>
+            {activeNav === 'Dashboard' && (
+              <input
+                type="search"
+                placeholder="Search..."
+                className="h-10 w-full max-w-md rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 text-sm text-[var(--text-main)] outline-none focus:border-[#f97316]"
+              />
             )}
             <div className="ml-auto flex items-center gap-2">
               <button
@@ -527,6 +521,22 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
               notice={projectEntitiesNotice}
               onRefresh={fetchProjectEntities}
             />
+          ) : activeNav === 'Bookings' ? (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-lg text-[var(--text-muted)]">Bookings section coming soon...</p>
+            </div>
+          ) : activeNav === 'Calendar' ? (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-lg text-[var(--text-muted)]">Calendar section coming soon...</p>
+            </div>
+          ) : activeNav === 'Forms' ? (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-lg text-[var(--text-muted)]">Forms section coming soon...</p>
+            </div>
+          ) : activeNav === 'Analytics' ? (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-lg text-[var(--text-muted)]">Analytics section coming soon...</p>
+            </div>
           ) : (
             <section className="mt-6 rounded-2xl bg-[var(--surface-bg)] px-5 py-6 shadow-sm" style={{ boxShadow: 'var(--surface-shadow)' }}>
               <div className="flex flex-wrap items-start justify-between gap-4">
