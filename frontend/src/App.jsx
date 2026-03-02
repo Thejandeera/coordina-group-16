@@ -12,6 +12,8 @@ const PATHS = {
   dashboard: '/dashboard',
   projectsEvents: '/projects-events',
   bookings: '/bookings',
+  calendar: '/calendar',
+  forms: '/forms',
   analytics: '/analytics',
   settings: '/settings',
 }
@@ -20,6 +22,8 @@ const protectedPaths = [
   PATHS.dashboard,
   PATHS.projectsEvents,
   PATHS.bookings,
+  PATHS.calendar,
+  PATHS.forms,
   PATHS.analytics,
   PATHS.settings,
 ]
