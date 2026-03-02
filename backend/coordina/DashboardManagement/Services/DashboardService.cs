@@ -28,13 +28,13 @@ namespace coordina.DashboardManagement.Services
 
             response.ActiveProjects = await GetScalarIntAsync(connection, @"
                 SELECT COUNT(*)
-                FROM DashboardProjectsEvents
-                WHERE ItemType = 'Project' AND Status = 'Active';");
+                FROM ProjectManagementEntities
+                WHERE EntityType = 'Project' AND Status = 'Active';");
 
             response.UpcomingEvents = await GetScalarIntAsync(connection, @"
                 SELECT COUNT(*)
-                FROM DashboardProjectsEvents
-                WHERE ItemType = 'Event' AND EventDate >= UTC_DATE();");
+                FROM ProjectManagementEntities
+                WHERE EntityType = 'Event' AND StartDate >= UTC_DATE();");
 
             response.PendingTasks = await GetScalarIntAsync(connection, @"
                 SELECT COALESCE(SUM(TaskCount), 0)
@@ -43,8 +43,8 @@ namespace coordina.DashboardManagement.Services
 
             response.DonationsRaised = await GetScalarDecimalAsync(connection, @"
                 SELECT COALESCE(SUM(RaisedAmount), 0)
-                FROM DashboardProjectsEvents
-                WHERE ItemType = 'Donation Drive';");
+                FROM ProjectManagementEntities
+                WHERE EntityType = 'Donation Drive';");
 
             response.RecentActivity = await GetRecentActivityAsync(connection);
             response.UpcomingSchedule = await GetUpcomingAsync(connection);
@@ -147,11 +147,11 @@ namespace coordina.DashboardManagement.Services
         {
             var result = new List<UpcomingItem>();
             const string query = @"
-                SELECT EventDate, Title, COALESCE(TimeRange, '09:00 - 16:00') AS TimeRange
-                FROM DashboardProjectsEvents
-                WHERE ItemType = 'Event'
-                  AND EventDate >= UTC_DATE()
-                ORDER BY EventDate ASC
+                SELECT StartDate, Name
+                FROM ProjectManagementEntities
+                WHERE EntityType = 'Event'
+                  AND StartDate >= UTC_DATE()
+                ORDER BY StartDate ASC
                 LIMIT 3;";
 
             using var command = new MySqlCommand(query, connection);
@@ -160,9 +160,9 @@ namespace coordina.DashboardManagement.Services
             {
                 result.Add(new UpcomingItem
                 {
-                    EventDate = Convert.ToDateTime(reader["EventDate"], CultureInfo.InvariantCulture).Date,
-                    Title = reader["Title"].ToString() ?? string.Empty,
-                    TimeRange = reader["TimeRange"].ToString() ?? "09:00 - 16:00"
+                    EventDate = Convert.ToDateTime(reader["StartDate"], CultureInfo.InvariantCulture).Date,
+                    Title = reader["Name"].ToString() ?? string.Empty,
+                    TimeRange = "09:00 - 16:00"
                 });
             }
 
@@ -206,8 +206,8 @@ namespace coordina.DashboardManagement.Services
         {
             var result = new List<ProjectEventItem>();
             const string query = @"
-                SELECT Id, Title, Description, ItemType, Status, MembersCount, EventDate, RaisedAmount, GoalAmount
-                FROM DashboardProjectsEvents
+                SELECT Id, Name, Description, EntityType, Status, MembersCount, StartDate, RaisedAmount, GoalAmount
+                FROM ProjectManagementEntities
                 ORDER BY CreatedAt DESC;";
 
             using var command = new MySqlCommand(query, connection);
@@ -217,12 +217,12 @@ namespace coordina.DashboardManagement.Services
                 result.Add(new ProjectEventItem
                 {
                     Id = Convert.ToInt64(reader["Id"], CultureInfo.InvariantCulture),
-                    Title = reader["Title"].ToString() ?? string.Empty,
+                    Title = reader["Name"].ToString() ?? string.Empty,
                     Description = reader["Description"].ToString() ?? string.Empty,
-                    ItemType = reader["ItemType"].ToString() ?? string.Empty,
+                    ItemType = reader["EntityType"].ToString() ?? string.Empty,
                     Status = reader["Status"].ToString() ?? string.Empty,
                     MembersCount = Convert.ToInt32(reader["MembersCount"], CultureInfo.InvariantCulture),
-                    EventDate = Convert.ToDateTime(reader["EventDate"], CultureInfo.InvariantCulture).Date,
+                    EventDate = Convert.ToDateTime(reader["StartDate"], CultureInfo.InvariantCulture).Date,
                     RaisedAmount = reader["RaisedAmount"] is DBNull ? null : Convert.ToDecimal(reader["RaisedAmount"], CultureInfo.InvariantCulture),
                     GoalAmount = reader["GoalAmount"] is DBNull ? null : Convert.ToDecimal(reader["GoalAmount"], CultureInfo.InvariantCulture)
                 });
