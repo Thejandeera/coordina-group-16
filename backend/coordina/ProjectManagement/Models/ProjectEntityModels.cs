@@ -43,7 +43,7 @@ namespace coordina.ProjectManagement.Models
         public decimal? RaisedAmount { get; set; }
         public decimal? GoalAmount { get; set; }
         public int? MembersCount { get; set; }
-        
+
         [MaxLength(500)]
         public string? PadletEvidence { get; set; }
     }
@@ -73,7 +73,7 @@ namespace coordina.ProjectManagement.Models
         public decimal? RaisedAmount { get; set; }
         public decimal? GoalAmount { get; set; }
         public int? MembersCount { get; set; }
-        
+
         [MaxLength(500)]
         public string? PadletEvidence { get; set; }
     }

@@ -71,7 +71,7 @@ namespace coordina.ProjectManagement.Services
             var startDate = request.StartDate.Date;
             var endDate = request.EndDate?.Date;
             var status = ResolveStatus(entityType, startDate, endDate);
-            
+
             // Overriding fields based on logical rules: 
             // - Events/Projects get MembersCount, not RaisedAmount/GoalAmount
             // - Donation Drives get RaisedAmount/GoalAmount, PadletEvidence
@@ -119,7 +119,7 @@ namespace coordina.ProjectManagement.Services
             }
 
             var mappedEntity = MapEntity(reader);
-            
+
             await LogActivityAsync("created a new", $"{entityType}: {mappedEntity.Name}");
 
             return mappedEntity;
@@ -178,7 +178,7 @@ namespace coordina.ProjectManagement.Services
                 using var checkCommand = new MySqlCommand(checkQuery, connection);
                 checkCommand.Parameters.AddWithValue("@Id", id);
                 var exists = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()) > 0;
-                
+
                 if (!exists)
                 {
                     throw new ArgumentException($"Entity with ID {id} not found.");
@@ -233,7 +233,7 @@ namespace coordina.ProjectManagement.Services
 
             using var deleteCommand = new MySqlCommand(deleteQuery, connection);
             deleteCommand.Parameters.AddWithValue("@Id", id);
-            
+
             var rowsAffected = await deleteCommand.ExecuteNonQueryAsync();
             if (rowsAffected == 0)
             {
@@ -274,13 +274,13 @@ namespace coordina.ProjectManagement.Services
             // Check if PadletEvidence column exists, and add it if it doesnt (for backward compatibility during migration)
             try
             {
-                 const string alterQuery = "ALTER TABLE ProjectManagementEntities ADD COLUMN IF NOT EXISTS PadletEvidence VARCHAR(500) NULL;";
-                 using var alterCommand = new MySqlCommand(alterQuery, connection);
-                 await alterCommand.ExecuteNonQueryAsync();
+                const string alterQuery = "ALTER TABLE ProjectManagementEntities ADD COLUMN IF NOT EXISTS PadletEvidence VARCHAR(500) NULL;";
+                using var alterCommand = new MySqlCommand(alterQuery, connection);
+                await alterCommand.ExecuteNonQueryAsync();
             }
-            catch(Exception)
+            catch (Exception)
             {
-                 // Ignore if error, it might mean the syntax isn't perfectly supported on this MySQL version or column exists via other means
+                // Ignore if error, it might mean the syntax isn't perfectly supported on this MySQL version or column exists via other means
             }
         }
 
@@ -367,7 +367,7 @@ namespace coordina.ProjectManagement.Services
 
                 using var command = new MySqlCommand(query, connection);
                 // Currently using a placeholder "A user" until RBAC is fully implemented
-                command.Parameters.AddWithValue("@Actor", "A user"); 
+                command.Parameters.AddWithValue("@Actor", "A user");
                 command.Parameters.AddWithValue("@ActionText", actionText);
                 command.Parameters.AddWithValue("@TargetText", targetText);
 
