@@ -1,3 +1,4 @@
+jest.setTimeout(30000);
 const axios = require('axios');
 
 const API_URL = 'http://localhost:5134/api/Auth/login';

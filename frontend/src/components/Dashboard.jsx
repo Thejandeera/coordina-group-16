@@ -2,9 +2,16 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { authFetch, readJsonSafe, setSessionUserData } from '../lib/authClient'
 import Sidebar from './Sidebar'
-import UpdateProfileModal from './UpdateProfileModal'
+import UpdateProfile from './UpdateProfile'
 
 const navItems = ['Dashboard', 'Projects & Events', 'Bookings', 'Analytics', 'Settings']
+const defaultPaths = {
+  dashboard: '/dashboard',
+  projectsEvents: '/projects-events',
+  bookings: '/bookings',
+  analytics: '/analytics',
+  settings: '/settings',
+}
 
 const emptyWeeklyTasks = [
   { day: 'Mon', value: 0 },
@@ -42,30 +49,29 @@ const formatTimeAgo = (dateValue) => {
   return `${diffDays} days ago`
 }
 
-const navToSlug = {
-  Dashboard: '',
-  'Projects & Events': 'projects-events',
-  Bookings: 'bookings',
-  Analytics: 'analytics',
-  Settings: 'settings',
-}
+function Dashboard({ user, onLogout, onUserRefresh, paths }) {
+  const resolvedPaths = { ...defaultPaths, ...(paths ?? {}) }
+  const dashboardPath = resolvedPaths.dashboard
+  const projectsEventsPath = resolvedPaths.projectsEvents
+  const bookingsPath = resolvedPaths.bookings
+  const analyticsPath = resolvedPaths.analytics
+  const settingsPath = resolvedPaths.settings
 
-const slugToNav = {
-  '': 'Dashboard',
-  'projects-events': 'Projects & Events',
-  bookings: 'Bookings',
-  analytics: 'Analytics',
-  settings: 'Settings',
-}
+  const navToPath = {
+    Dashboard: dashboardPath,
+    'Projects & Events': projectsEventsPath,
+    Bookings: bookingsPath,
+    Analytics: analyticsPath,
+    Settings: settingsPath,
+  }
 
-function Dashboard({ user, onLogout, onUserRefresh }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [activeNav, setActiveNav] = useState('Dashboard')
   const [isDarkTheme, setIsDarkTheme] = useState(() => localStorage.getItem('dashboardTheme') === 'dark')
-  const [profileOpen, setProfileOpen] = useState(false)
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileNotice, setProfileNotice] = useState({ text: '', type: '' })
+  const [dashboardNotice, setDashboardNotice] = useState({ text: '', type: '' })
   const [profileImageFile, setProfileImageFile] = useState(null)
   const [dashboardStats, setDashboardStats] = useState([
     { label: 'Active Projects', value: '0' },
@@ -101,11 +107,19 @@ function Dashboard({ user, onLogout, onUserRefresh }) {
   }, [isDarkTheme])
 
   useEffect(() => {
-    const rawPath = location.pathname.replace(/^\/dashboard\/?/, '')
-    const sectionSlug = rawPath.replace(/\/+$/, '')
-    const nextActive = sectionSlug in slugToNav ? slugToNav[sectionSlug] : 'Dashboard'
+    const normalizedPath = location.pathname.replace(/\/+$/, '') || dashboardPath
+    let nextActive = 'Dashboard'
+    if (normalizedPath === projectsEventsPath) {
+      nextActive = 'Projects & Events'
+    } else if (normalizedPath === bookingsPath) {
+      nextActive = 'Bookings'
+    } else if (normalizedPath === analyticsPath) {
+      nextActive = 'Analytics'
+    } else if (normalizedPath === settingsPath) {
+      nextActive = 'Settings'
+    }
     setActiveNav(nextActive)
-  }, [location.pathname])
+  }, [analyticsPath, bookingsPath, dashboardPath, location.pathname, projectsEventsPath, settingsPath])
 
   useEffect(() => {
     setForm((prev) => ({
@@ -124,13 +138,18 @@ function Dashboard({ user, onLogout, onUserRefresh }) {
         const response = await authFetch('/api/users/me')
         const profileData = await readJsonSafe(response)
         if (!response.ok || !profileData || cancelled) {
+          if (!cancelled) {
+            setDashboardNotice({ text: 'Could not refresh profile data.', type: 'error' })
+          }
           return
         }
 
         setSessionUserData(profileData)
         onUserRefresh?.(profileData)
       } catch {
-        // Keep existing session user if profile refresh fails.
+        if (!cancelled) {
+          setDashboardNotice({ text: 'Could not refresh profile data.', type: 'error' })
+        }
       }
     }
 
@@ -149,8 +168,12 @@ function Dashboard({ user, onLogout, onUserRefresh }) {
         const response = await authFetch('/api/dashboard/overview')
         const data = await readJsonSafe(response)
         if (!response.ok || !data || cancelled) {
+          if (!cancelled) {
+            setDashboardNotice({ text: 'Could not load dashboard overview.', type: 'error' })
+          }
           return
         }
+        setDashboardNotice({ text: '', type: '' })
 
         setDashboardStats([
           { label: 'Active Projects', value: String(data.activeProjects ?? 0) },
@@ -195,7 +218,9 @@ function Dashboard({ user, onLogout, onUserRefresh }) {
           setDashboardWeeklyTasks(mappedWeeklyTasks.length > 0 ? mappedWeeklyTasks : emptyWeeklyTasks)
         }
       } catch {
-        // Keep existing dashboard values on failure.
+        if (!cancelled) {
+          setDashboardNotice({ text: 'Could not load dashboard overview.', type: 'error' })
+        }
       }
     }
 
@@ -208,8 +233,7 @@ function Dashboard({ user, onLogout, onUserRefresh }) {
 
   const goToSection = (sectionName) => {
     setActiveNav(sectionName)
-    const slug = navToSlug[sectionName] ?? ''
-    navigate(slug ? `/dashboard/${slug}` : '/dashboard')
+    navigate(navToPath[sectionName] ?? dashboardPath)
   }
 
   const themeVars = isDarkTheme
@@ -222,10 +246,13 @@ function Dashboard({ user, onLogout, onUserRefresh }) {
         '--surface-shadow': '0 6px 20px rgba(0,0,0,0.35)',
         '--input-bg': '#0f172a',
         '--input-border': '#2b3a5c',
-        '--sidebar-bg': '#0b2347',
-        '--sidebar-border': '#1c3f74',
-        '--sidebar-muted': 'rgba(255,255,255,0.72)',
-        '--modal-overlay': 'rgba(3, 8, 20, 0.75)',
+        '--sidebar-bg': '#ffffff',
+        '--sidebar-border': '#d5dbe8',
+        '--sidebar-muted': '#64748b',
+        '--sidebar-text': '#0b2347',
+        '--sidebar-hover': '#eef2ff',
+        '--sidebar-active-bg': '#0b2347',
+        '--sidebar-active-text': '#ffffff',
       }
     : {
         '--page-bg': '#f8fafc',
@@ -236,10 +263,13 @@ function Dashboard({ user, onLogout, onUserRefresh }) {
         '--surface-shadow': '0 1px 2px rgba(15,23,42,0.08)',
         '--input-bg': '#ffffff',
         '--input-border': '#d5dbe8',
-        '--sidebar-bg': '#0b2347',
-        '--sidebar-border': '#153865',
-        '--sidebar-muted': 'rgba(255,255,255,0.72)',
-        '--modal-overlay': 'rgba(11, 35, 71, 0.5)',
+        '--sidebar-bg': '#ffffff',
+        '--sidebar-border': '#d5dbe8',
+        '--sidebar-muted': '#64748b',
+        '--sidebar-text': '#0b2347',
+        '--sidebar-hover': '#eef2ff',
+        '--sidebar-active-bg': '#0b2347',
+        '--sidebar-active-text': '#ffffff',
       }
 
   const openProfile = () => {
@@ -253,7 +283,7 @@ function Dashboard({ user, onLogout, onUserRefresh }) {
       newPassword: '',
       confirmPassword: '',
     })
-    setProfileOpen(true)
+    goToSection('Settings')
   }
 
   const validateProfileForm = () => {
@@ -440,108 +470,118 @@ function Dashboard({ user, onLogout, onUserRefresh }) {
             </div>
           </header>
 
-          <section className="mt-6 rounded-2xl bg-[var(--surface-bg)] px-5 py-6 shadow-sm" style={{ boxShadow: 'var(--surface-shadow)' }}>
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-extrabold leading-tight text-[var(--text-main)] sm:text-3xl">Welcome back, {user?.username ?? 'User'}</h1>
-                <p className="mt-2 text-sm text-[var(--text-muted)]">Here&apos;s what&apos;s happening in your community on Coordina</p>
-              </div>
-            </div>
+          {dashboardNotice.text && (
+            <p
+              className={`mt-4 rounded-lg px-3 py-2 text-sm font-semibold ${
+                dashboardNotice.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'
+              }`}
+            >
+              {dashboardNotice.text}
+            </p>
+          )}
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-              {dashboardStats.map((card) => (
-                <article key={card.label} className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-bg)] p-5">
-                  <p className="text-2xl font-extrabold text-[var(--text-main)]">{card.value}</p>
-                  <p className="mt-2 text-sm text-[var(--text-muted)]">{card.label}</p>
+          {activeNav === 'Settings' ? (
+            <UpdateProfile
+              form={form}
+              setForm={setForm}
+              setProfileImageFile={setProfileImageFile}
+              handleProfileSave={handleProfileSave}
+              savingProfile={savingProfile}
+              profileNotice={profileNotice}
+            />
+          ) : (
+            <section className="mt-6 rounded-2xl bg-[var(--surface-bg)] px-5 py-6 shadow-sm" style={{ boxShadow: 'var(--surface-shadow)' }}>
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl font-extrabold leading-tight text-[var(--text-main)] sm:text-3xl">Welcome back, {user?.username ?? 'User'}</h1>
+                  <p className="mt-2 text-sm text-[var(--text-muted)]">Here&apos;s what&apos;s happening in your community on Coordina</p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {dashboardStats.map((card) => (
+                  <article key={card.label} className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-bg)] p-5">
+                    <p className="text-2xl font-extrabold text-[var(--text-main)]">{card.value}</p>
+                    <p className="mt-2 text-sm text-[var(--text-muted)]">{card.label}</p>
+                  </article>
+                ))}
+              </div>
+
+              <div className="mt-6 grid gap-4 xl:grid-cols-[1fr_320px]">
+                <article className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-bg)] p-5">
+                  <h2 className="text-xl font-bold text-[var(--text-main)]">Recent Activity</h2>
+                  <ul className="mt-4 space-y-4">
+                    {dashboardActivity.map((item, index) => (
+                      <li key={`${item.actor}-${index}`} className="flex gap-3">
+                        <span className="mt-2 h-2.5 w-2.5 rounded-full bg-[#f97316]" />
+                        <div className="text-sm text-[var(--text-muted)]">
+                          <span className="font-bold text-[var(--text-main)]">{item.actor}</span> {item.action}{' '}
+                          <span className="font-bold text-[var(--text-main)]">{item.target}</span>
+                          <p className="text-sm text-[var(--text-muted)]">{item.time}</p>
+                        </div>
+                      </li>
+                    ))}
+                    {dashboardActivity.length === 0 && (
+                      <li className="text-sm text-[var(--text-muted)]">No recent activity yet.</li>
+                    )}
+                  </ul>
                 </article>
-              ))}
-            </div>
 
-            <div className="mt-6 grid gap-4 xl:grid-cols-[1fr_320px]">
-              <article className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-bg)] p-5">
-                <h2 className="text-xl font-bold text-[var(--text-main)]">Recent Activity</h2>
-                <ul className="mt-4 space-y-4">
-                  {dashboardActivity.map((item, index) => (
-                    <li key={`${item.actor}-${index}`} className="flex gap-3">
-                      <span className="mt-2 h-2.5 w-2.5 rounded-full bg-[#f97316]" />
-                      <div className="text-sm text-[var(--text-muted)]">
-                        <span className="font-bold text-[var(--text-main)]">{item.actor}</span> {item.action}{' '}
-                        <span className="font-bold text-[var(--text-main)]">{item.target}</span>
-                        <p className="text-sm text-[var(--text-muted)]">{item.time}</p>
-                      </div>
-                    </li>
-                  ))}
-                  {dashboardActivity.length === 0 && (
-                    <li className="text-sm text-[var(--text-muted)]">No recent activity yet.</li>
-                  )}
-                </ul>
-              </article>
-
-              <article className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-bg)] p-5">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-[var(--text-main)]">Upcoming</h2>
-                  <button type="button" className="text-sm font-semibold text-[var(--text-muted)]">
-                    View all
-                  </button>
-                </div>
-                <ul className="mt-4 space-y-4">
-                  {dashboardUpcoming.map((item) => (
-                    <li key={`${item.day}-${item.title}`} className="flex gap-3">
-                      <div className="w-14 rounded-xl bg-[#fff7ed] py-1.5 text-center">
-                        <p className="text-lg font-bold text-[#f97316]">{item.day}</p>
-                        <p className="text-sm text-[var(--text-muted)]">{item.month}</p>
-                      </div>
-                      <div>
-                        <p className="text-base font-bold text-[var(--text-main)]">{item.title}</p>
-                        <p className="text-sm text-[var(--text-muted)]">{item.time}</p>
-                      </div>
-                    </li>
-                  ))}
-                  {dashboardUpcoming.length === 0 && (
-                    <li className="text-sm text-[var(--text-muted)]">No upcoming events.</li>
-                  )}
-                </ul>
-              </article>
-            </div>
-
-            <article className="mt-6 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-bg)] p-5">
-              <h2 className="text-xl font-bold text-[var(--text-main)]">Tasks This Week</h2>
-              <div className="mt-4 grid grid-cols-[28px_1fr] gap-3">
-                <div className="flex h-52 flex-col justify-between pb-7 text-xs font-semibold text-[var(--text-muted)]">
-                  <span>{weeklyTaskMax}</span>
-                  <span>{Math.max(0, weeklyTaskMax - 2)}</span>
-                  <span>{Math.max(0, weeklyTaskMax - 4)}</span>
-                  <span>{Math.max(0, weeklyTaskMax - 6)}</span>
-                  <span>0</span>
-                </div>
-                <div className="grid h-52 grid-cols-7 items-end gap-3 border-b border-[var(--surface-border)] pb-7">
-                  {dashboardWeeklyTasks.map((item) => (
-                    <div key={item.day} className="flex flex-col items-center gap-2">
-                      <div
-                        className="w-full rounded-md bg-[#3264cc]"
-                        style={{ height: `${Math.max(10, (Number(item.value || 0) / weeklyTaskMax) * 100)}%` }}
-                        title={`${item.day}: ${item.value} tasks`}
-                      />
-                      <span className="text-sm text-[var(--text-muted)]">{item.day}</span>
-                    </div>
-                  ))}
-                </div>
+                <article className="rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-bg)] p-5">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-bold text-[var(--text-main)]">Upcoming</h2>
+                    <button type="button" className="text-sm font-semibold text-[var(--text-muted)]">
+                      View all
+                    </button>
+                  </div>
+                  <ul className="mt-4 space-y-4">
+                    {dashboardUpcoming.map((item) => (
+                      <li key={`${item.day}-${item.title}`} className="flex gap-3">
+                        <div className="w-14 rounded-xl bg-[#fff7ed] py-1.5 text-center">
+                          <p className="text-lg font-bold text-[#f97316]">{item.day}</p>
+                          <p className="text-sm text-[var(--text-muted)]">{item.month}</p>
+                        </div>
+                        <div>
+                          <p className="text-base font-bold text-[var(--text-main)]">{item.title}</p>
+                          <p className="text-sm text-[var(--text-muted)]">{item.time}</p>
+                        </div>
+                      </li>
+                    ))}
+                    {dashboardUpcoming.length === 0 && (
+                      <li className="text-sm text-[var(--text-muted)]">No upcoming events.</li>
+                    )}
+                  </ul>
+                </article>
               </div>
-            </article>
-          </section>
+
+              <article className="mt-6 rounded-2xl border border-[var(--surface-border)] bg-[var(--surface-bg)] p-5">
+                <h2 className="text-xl font-bold text-[var(--text-main)]">Tasks This Week</h2>
+                <div className="mt-4 grid grid-cols-[28px_1fr] gap-3">
+                  <div className="flex h-52 flex-col justify-between pb-7 text-xs font-semibold text-[var(--text-muted)]">
+                    <span>{weeklyTaskMax}</span>
+                    <span>{Math.max(0, weeklyTaskMax - 2)}</span>
+                    <span>{Math.max(0, weeklyTaskMax - 4)}</span>
+                    <span>{Math.max(0, weeklyTaskMax - 6)}</span>
+                    <span>0</span>
+                  </div>
+                  <div className="grid h-52 grid-cols-7 items-end gap-3 border-b border-[var(--surface-border)] pb-7">
+                    {dashboardWeeklyTasks.map((item) => (
+                      <div key={item.day} className="flex flex-col items-center gap-2">
+                        <div
+                          className="w-full rounded-md bg-[#3264cc]"
+                          style={{ height: `${Math.max(10, (Number(item.value || 0) / weeklyTaskMax) * 100)}%` }}
+                          title={`${item.day}: ${item.value} tasks`}
+                        />
+                        <span className="text-sm text-[var(--text-muted)]">{item.day}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </article>
+            </section>
+          )}
         </main>
       </div>
-
-      <UpdateProfileModal
-        isOpen={profileOpen}
-        onClose={() => setProfileOpen(false)}
-        form={form}
-        setForm={setForm}
-        setProfileImageFile={setProfileImageFile}
-        handleProfileSave={handleProfileSave}
-        savingProfile={savingProfile}
-        profileNotice={profileNotice}
-      />
     </div>
   )
 }
