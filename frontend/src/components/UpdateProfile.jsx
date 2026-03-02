@@ -1,30 +1,38 @@
-function UpdateProfileModal({
-  isOpen,
-  onClose,
-  form,
-  setForm,
-  setProfileImageFile,
-  handleProfileSave,
-  savingProfile,
-  profileNotice,
-}) {
-  if (!isOpen) {
-    return null
+import { useState } from 'react'
+
+function UpdateProfile({ form, setForm, setProfileImageFile, handleProfileSave, savingProfile, profileNotice }) {
+  const [imageError, setImageError] = useState('')
+
+  const handleImageChange = (event) => {
+    const file = event.target.files?.[0] ?? null
+    if (!file) {
+      setImageError('')
+      setProfileImageFile(null)
+      return
+    }
+
+    const isImage = file.type.startsWith('image/')
+    if (!isImage) {
+      setImageError('Please select a valid image file.')
+      setProfileImageFile(null)
+      return
+    }
+
+    const maxBytes = 2 * 1024 * 1024
+    if (file.size > maxBytes) {
+      setImageError('Image must be 2MB or smaller.')
+      setProfileImageFile(null)
+      return
+    }
+
+    setImageError('')
+    setProfileImageFile(file)
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[var(--modal-overlay)] p-4">
-      <section className="w-full max-w-xl rounded-2xl bg-[var(--surface-bg)] p-6 shadow-2xl">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-[var(--text-main)]">Update Profile</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-[var(--surface-border)] px-3 py-1.5 text-sm font-semibold text-[var(--text-muted)]"
-          >
-            Close
-          </button>
-        </div>
+    <section className="mt-6 rounded-2xl bg-[var(--surface-bg)] px-5 py-6 shadow-sm" style={{ boxShadow: 'var(--surface-shadow)' }}>
+      <div className="mx-auto w-full max-w-2xl">
+        <h2 className="text-2xl font-bold text-[var(--text-main)]">Update Profile</h2>
 
         <form className="mt-5 grid gap-4" onSubmit={handleProfileSave}>
           <label className="grid gap-1 text-sm font-semibold text-[var(--text-muted)]">
@@ -69,10 +77,11 @@ function UpdateProfileModal({
             <input
               type="file"
               accept="image/*"
-              onChange={(event) => setProfileImageFile(event.target.files?.[0] ?? null)}
+              onChange={handleImageChange}
               className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-muted)] file:mr-3 file:rounded-lg file:border-0 file:bg-[#fff7ed] file:px-3 file:py-1.5 file:text-[#f97316] hover:file:bg-[#ffedd5]"
             />
           </label>
+          {imageError && <p className="text-sm font-semibold text-orange-700">{imageError}</p>}
 
           <p className="text-sm font-semibold text-[var(--text-muted)]">To change password, fill all three password fields below.</p>
 
@@ -124,9 +133,9 @@ function UpdateProfileModal({
             {profileNotice.text}
           </p>
         )}
-      </section>
-    </div>
+      </div>
+    </section>
   )
 }
 
-export default UpdateProfileModal
+export default UpdateProfile
