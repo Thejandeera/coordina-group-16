@@ -423,6 +423,18 @@ namespace coordina.UserManagement.Services
                 throw new InvalidOperationException("Profile image file is empty.");
             }
 
+            const long maxFileSize = 5 * 1024 * 1024; // 5 MB
+            if (file.Length > maxFileSize)
+            {
+                throw new InvalidOperationException("Profile image exceeds the maximum allowed size of 5MB.");
+            }
+
+            var allowedTypes = new[] { "image/jpeg", "image/png", "image/webp" };
+            if (!allowedTypes.Contains(file.ContentType.ToLowerInvariant()))
+            {
+                throw new InvalidOperationException("Invalid image format. Only JPEG, PNG, and WEBP are allowed.");
+            }
+
             if (string.IsNullOrWhiteSpace(_cloudinarySettings.CloudName) ||
                 string.IsNullOrWhiteSpace(_cloudinarySettings.ApiKey) ||
                 string.IsNullOrWhiteSpace(_cloudinarySettings.ApiSecret))

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { authFetch, readJsonSafe, setSessionUserData } from '../lib/authClient'
 import Sidebar from './Sidebar'
 import UpdateProfile from './UpdateProfile'
+import ProjectsEvents from './ProjectsEvents'
 
 const navItems = ['Dashboard', 'Projects & Events', 'Bookings', 'Analytics', 'Settings']
 const defaultPaths = {
@@ -82,6 +83,9 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
   const [dashboardActivity, setDashboardActivity] = useState([])
   const [dashboardUpcoming, setDashboardUpcoming] = useState([])
   const [dashboardWeeklyTasks, setDashboardWeeklyTasks] = useState(emptyWeeklyTasks)
+  const [projectEntities, setProjectEntities] = useState([])
+  const [projectEntitiesLoading, setProjectEntitiesLoading] = useState(false)
+  const [projectEntitiesNotice, setProjectEntitiesNotice] = useState({ text: '', type: '' })
   const [form, setForm] = useState({
     username: user?.username ?? '',
     email: user?.email ?? '',
@@ -159,6 +163,29 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
       cancelled = true
     }
   }, [onUserRefresh])
+
+  const fetchProjectEntities = useCallback(async () => {
+    setProjectEntitiesLoading(true)
+    try {
+      const response = await authFetch('/api/project-management/entities')
+      const data = await readJsonSafe(response)
+      if (!response.ok || !Array.isArray(data)) {
+        setProjectEntitiesNotice({ text: 'Could not load projects and events.', type: 'error' })
+        return
+      }
+
+      setProjectEntities(data)
+      setProjectEntitiesNotice({ text: '', type: '' })
+    } catch {
+      setProjectEntitiesNotice({ text: 'Could not load projects and events.', type: 'error' })
+    } finally {
+      setProjectEntitiesLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchProjectEntities()
+  }, [fetchProjectEntities])
 
   useEffect(() => {
     let cancelled = false
@@ -400,25 +427,29 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
 
         <main className="h-screen overflow-y-auto px-4 pb-7 pt-4 sm:px-6">
           <header className="flex flex-wrap items-center gap-3 rounded-2xl bg-[var(--surface-bg)] px-5 py-3 shadow-sm" style={{ boxShadow: 'var(--surface-shadow)' }}>
-            <input
-              type="search"
-              placeholder="Search..."
-              className="h-10 flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 text-sm text-[var(--text-main)] outline-none focus:border-[#f97316]"
-            />
-            <button
-              type="button"
-              onClick={() => goToSection('Projects & Events')}
-              className="rounded-xl border border-[#153865] px-5 py-2.5 text-sm font-semibold text-[#153865]"
-            >
-              New Project
-            </button>
-            <button
-              type="button"
-              onClick={() => goToSection('Bookings')}
-              className="rounded-xl border border-[#153865] px-5 py-2.5 text-sm font-semibold text-[#153865]"
-            >
-              Book Resource
-            </button>
+            {activeNav !== 'Projects & Events' && (
+              <>
+                <input
+                  type="search"
+                  placeholder="Search..."
+                  className="h-10 flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 text-sm text-[var(--text-main)] outline-none focus:border-[#f97316]"
+                />
+                <button
+                  type="button"
+                  onClick={() => goToSection('Projects & Events')}
+                  className="rounded-xl border border-[#153865] px-5 py-2.5 text-sm font-semibold text-[#153865]"
+                >
+                  New Project
+                </button>
+                <button
+                  type="button"
+                  onClick={() => goToSection('Bookings')}
+                  className="rounded-xl border border-[#153865] px-5 py-2.5 text-sm font-semibold text-[#153865]"
+                >
+                  Book Resource
+                </button>
+              </>
+            )}
             <div className="ml-auto flex items-center gap-2">
               <button
                 type="button"
@@ -488,6 +519,13 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
               handleProfileSave={handleProfileSave}
               savingProfile={savingProfile}
               profileNotice={profileNotice}
+            />
+          ) : activeNav === 'Projects & Events' ? (
+            <ProjectsEvents
+              items={projectEntities}
+              loading={projectEntitiesLoading}
+              notice={projectEntitiesNotice}
+              onRefresh={fetchProjectEntities}
             />
           ) : (
             <section className="mt-6 rounded-2xl bg-[var(--surface-bg)] px-5 py-6 shadow-sm" style={{ boxShadow: 'var(--surface-shadow)' }}>
