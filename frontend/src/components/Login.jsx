@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiFetch, authFetch, readJsonSafe, setAuthTokens, setSessionUserData } from '../lib/authClient'
 
-function Login({ onLoggedIn }) {
+function Login({ onLoggedIn, signupPath = '/signup' }) {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({
@@ -40,7 +40,6 @@ function Login({ onLoggedIn }) {
 
       setAuthTokens(data)
       let profileData = null
-
       try {
         const profileResponse = await authFetch('/api/users/me')
         const apiProfile = await readJsonSafe(profileResponse)
@@ -50,12 +49,8 @@ function Login({ onLoggedIn }) {
       } catch {
         profileData = null
       }
-
       if (!profileData) {
-        profileData = getFallbackUserFromToken(data.accessToken)
-      }
-      if (!profileData) {
-        throw new Error('Login succeeded but failed to load user profile.')
+        throw new Error('Login succeeded but failed to verify user profile.')
       }
 
       setSessionUserData(profileData)
@@ -116,7 +111,7 @@ function Login({ onLoggedIn }) {
             <button
               className="rounded-lg px-3 py-2 text-sm font-semibold transition text-[#385075]"
               type="button"
-              onClick={() => navigate('/signup')}
+              onClick={() => navigate(signupPath)}
             >
               Sign Up
             </button>
@@ -167,33 +162,6 @@ function Login({ onLoggedIn }) {
       </main>
     </div>
   )
-}
-
-const getFallbackUserFromToken = (accessToken) => {
-  try {
-    const parts = accessToken.split('.')
-    if (parts.length < 2) {
-      return null
-    }
-
-    const payload = parts[1]
-      .replace(/-/g, '+')
-      .replace(/_/g, '/')
-      .padEnd(Math.ceil(parts[1].length / 4) * 4, '=')
-    const claims = JSON.parse(atob(payload))
-
-    return {
-      id: claims['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier'] ?? null,
-      username: claims['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name'] ?? 'User',
-      email:
-        claims['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress'] ??
-        claims.email ??
-        '',
-      phoneNumber: '',
-    }
-  } catch {
-    return null
-  }
 }
 
 export default Login

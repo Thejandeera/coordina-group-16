@@ -5,6 +5,25 @@ import Signup from './components/Signup'
 import Dashboard from './components/Dashboard'
 import { clearAuthTokens, clearSessionUserData, getSessionUserData } from './lib/authClient'
 
+const PATHS = {
+  root: '/',
+  login: '/login',
+  signup: '/signup',
+  dashboard: '/dashboard',
+  projectsEvents: '/projects-events',
+  bookings: '/bookings',
+  analytics: '/analytics',
+  settings: '/settings',
+}
+
+const protectedPaths = [
+  PATHS.dashboard,
+  PATHS.projectsEvents,
+  PATHS.bookings,
+  PATHS.analytics,
+  PATHS.settings,
+]
+
 function App() {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -33,20 +52,35 @@ function App() {
 
   return (
     <Routes>
+      <Route path={PATHS.root} element={<Navigate to={user ? PATHS.dashboard : PATHS.login} replace />} />
       <Route
-        path="/login"
-        element={user ? <Navigate to="/dashboard" replace /> : <Login onLoggedIn={handleLoginSuccess} />}
+        path={PATHS.login}
+        element={
+          user ? (
+            <Navigate to={PATHS.dashboard} replace />
+          ) : (
+            <Login onLoggedIn={handleLoginSuccess} signupPath={PATHS.signup} />
+          )
+        }
       />
       <Route
-        path="/signup"
-        element={user ? <Navigate to="/dashboard" replace /> : <Signup />}
+        path={PATHS.signup}
+        element={user ? <Navigate to={PATHS.dashboard} replace /> : <Signup loginPath={PATHS.login} />}
       />
-      <Route
-        path="/dashboard"
-        element={user ? <Dashboard user={user} onLogout={handleLogout} onUserRefresh={setUser} /> : <Navigate to="/login" replace />}
-      />
-      <Route path="/" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />
-      <Route path="*" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />
+      {protectedPaths.map((path) => (
+        <Route
+          key={path}
+          path={path}
+          element={
+            user ? (
+              <Dashboard user={user} onLogout={handleLogout} onUserRefresh={setUser} paths={PATHS} />
+            ) : (
+              <Navigate to={PATHS.login} replace />
+            )
+          }
+        />
+      ))}
+      <Route path="*" element={<Navigate to={user ? PATHS.dashboard : PATHS.login} replace />} />
     </Routes>
   )
 }

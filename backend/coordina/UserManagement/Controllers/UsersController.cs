@@ -62,5 +62,29 @@ namespace coordina.UserManagement.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        [HttpPatch("profile")]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (!long.TryParse(userIdClaim, out var userId))
+            {
+                return Unauthorized(new { message = "Invalid access token." });
+            }
+
+            try
+            {
+                var updatedUser = await _authService.UpdateProfileAsync(userId, request);
+                return Ok(updatedUser);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }
