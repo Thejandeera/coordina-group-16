@@ -39,13 +39,17 @@ Tests the `POST /api/Auth/login` endpoint. To comprehensively test the login API
 
 ---
 
-### 3. Frontend-Aligned Tests (`frontend-login.test.js`, `frontend-signup.test.js`)
-These tests mirror the exact data structure (camelCase) and validation logic used in the React frontend.
+### 4. Update Profile API (`update-profile.test.js`, `frontend-update-profile.test.js`)
+Tests the `PATCH /api/Users/profile` and `PATCH /api/Users/profile-image` endpoints. These tests require a valid JWT token obtained via login.
 
-**Key features:**
-- **Field Names**: Uses `identifier`, `password`, `username`, `email`, `phoneNumber`, `profileImage`.
-- **Frontend Validation Mirroring**: Verifies constraints like `username` length (>=3) and `password` complexity (uppercase, lowercase, and symbols) as defined in the frontend.
-- **Success Criteria**: Expects `200 OK` for valid login and `201 Created` for valid signup.
+**Valid Test Cases:**
+- **[Success] Update Username and PhoneNumber**: Updates profile basics. Expects `200 OK`.
+- **[Success] Change Password**: Updates password by providing current and new password. Expects `200 OK`.
+- **[Success] Update Profile Image**: Uploads a new image via `multipart/form-data`. Expects `200 OK`.
+
+**Invalid Test Cases:**
+- **[Failure] Missing required fields**: Submits a payload without mandatory `Username` or `PhoneNumber`. Expects `400 Bad Request`.
+- **[Failure] Unauthorized access**: Attempts to update without a valid Bearer token. Expects `401 Unauthorized`.
 
 ## Execution Protocol
 Verify the centralized API Backend service architecture is active on configured `localhost` networks (e.g., `localhost:5134`) manually prior to executing requests.
@@ -56,4 +60,5 @@ You can initiate the test suites seamlessly from the root structured `test/` dir
 npm install
 npm test
 ```
+
 
