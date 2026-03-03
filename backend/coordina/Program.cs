@@ -122,7 +122,8 @@ app.UseAuthorization();
 // Minimal API test endpoint
 app.MapGet("/ping", () => "hello from backedn");
 
-app.MapGet("/ping-env", () => {
+app.MapGet("/ping-env", () =>
+{
     var vars = new string[] {
         "DB_CONNECTION_STRING",
         "JWT_ISSUER",
@@ -136,8 +137,25 @@ app.MapGet("/ping-env", () => {
     };
 
     var missing = vars.Where(v => string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(v))).ToList();
-    
-    return missing.Any() ? Results.Ok(new { status = "Missing Variables", missing }) : Results.Ok(new { status = "All variables present" });
+
+    string dbStatus = "Unknown";
+    string dbError = "";
+    try
+    {
+        var connStr = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
+        using var connection = new Microsoft.Data.SqlClient.SqlConnection(connStr);
+        connection.Open();
+        dbStatus = "Connected successfully!";
+    }
+    catch (Exception ex)
+    {
+        dbStatus = "Connection failed";
+        dbError = ex.Message;
+    }
+
+    return missing.Any()
+        ? Results.Ok(new { status = "Missing Variables", missing, dbStatus, dbError })
+        : Results.Ok(new { status = "All variables present", dbStatus, dbError });
 });
 
 app.MapControllers();
