@@ -127,6 +127,9 @@ app.UseCors("FrontendPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Minimal API test endpoint
+app.MapGet("/ping", () => "hello from backedn");
+
 app.MapControllers();
 
 app.Run();
