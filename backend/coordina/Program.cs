@@ -122,6 +122,24 @@ app.UseAuthorization();
 // Minimal API test endpoint
 app.MapGet("/ping", () => "hello from backedn");
 
+app.MapGet("/ping-env", () => {
+    var vars = new string[] {
+        "DB_CONNECTION_STRING",
+        "JWT_ISSUER",
+        "JWT_AUDIENCE",
+        "JWT_ACCESS_SECRET",
+        "JWT_REFRESH_SECRET",
+        "CLOUDINARY_CLOUD_NAME",
+        "CLOUDINARY_API_KEY",
+        "CLOUDINARY_API_SECRET",
+        "FRONTEND_URL"
+    };
+
+    var missing = vars.Where(v => string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(v))).ToList();
+    
+    return missing.Any() ? Results.Ok(new { status = "Missing Variables", missing }) : Results.Ok(new { status = "All variables present" });
+});
+
 app.MapControllers();
 
 app.Run();
