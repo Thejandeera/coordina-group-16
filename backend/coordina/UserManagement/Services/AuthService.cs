@@ -6,7 +6,7 @@ using coordina.UserManagement.Interface;
 using coordina.UserManagement.Models;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using MySql.Data.MySqlClient;
+using Microsoft.Data.SqlClient;
 using System.Data.Common;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -45,14 +45,14 @@ namespace coordina.UserManagement.Services
             var profileImageUrl = await UploadProfileImageAsync(request.ProfileImage);
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
-            using var connection = new MySqlConnection(_connectionString);
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
             const string query = @"
                 INSERT INTO Users (Username, Email, PasswordHash, PhoneNumber, ProfileImageUrl, CreatedAt)
                 VALUES (@Username, @Email, @PasswordHash, @PhoneNumber, @ProfileImageUrl, @CreatedAt);";
 
-            using var command = new MySqlCommand(query, connection);
+            using var command = new SqlCommand(query, connection);
             command.Parameters.AddWithValue("@Username", request.Username.Trim());
             command.Parameters.AddWithValue("@Email", request.Email.Trim().ToLowerInvariant());
             command.Parameters.AddWithValue("@PasswordHash", passwordHash);
@@ -67,17 +67,16 @@ namespace coordina.UserManagement.Services
 
         private async Task<bool> UserExistsAsync(string username, string email)
         {
-            using var connection = new MySqlConnection(_connectionString);
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
             const string query = @"
-                SELECT 1
+                SELECT TOP 1 1
                 FROM Users
                 WHERE LOWER(Username) = LOWER(@Username)
-                   OR LOWER(Email) = LOWER(@Email)
-                LIMIT 1;";
+                   OR LOWER(Email) = LOWER(@Email);";
 
-            using var command = new MySqlCommand(query, connection);
+            using var command = new SqlCommand(query, connection);
             command.Parameters.AddWithValue("@Username", username.Trim());
             command.Parameters.AddWithValue("@Email", email.Trim());
 
@@ -205,7 +204,7 @@ namespace coordina.UserManagement.Services
                 nextPasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
             }
 
-            using var connection = new MySqlConnection(_connectionString);
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
             const string query = @"
@@ -215,7 +214,7 @@ namespace coordina.UserManagement.Services
                     PasswordHash = COALESCE(@PasswordHash, PasswordHash)
                 WHERE Id = @Id;";
 
-            using var command = new MySqlCommand(query, connection);
+            using var command = new SqlCommand(query, connection);
             command.Parameters.AddWithValue("@Username", nextUsername);
             command.Parameters.AddWithValue("@PhoneNumber", nextPhoneNumber);
             command.Parameters.AddWithValue("@PasswordHash", nextPasswordHash ?? (object)DBNull.Value);
@@ -237,11 +236,11 @@ namespace coordina.UserManagement.Services
 
             var imageUrl = await UploadProfileImageAsync(profileImage);
 
-            using var connection = new MySqlConnection(_connectionString);
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
             const string query = "UPDATE Users SET ProfileImageUrl = @ProfileImageUrl WHERE Id = @Id;";
-            using var command = new MySqlCommand(query, connection);
+            using var command = new SqlCommand(query, connection);
             command.Parameters.AddWithValue("@ProfileImageUrl", imageUrl);
             command.Parameters.AddWithValue("@Id", userId);
             await command.ExecuteNonQueryAsync();
@@ -251,36 +250,38 @@ namespace coordina.UserManagement.Services
 
         private async Task EnsureUsersTableAsync()
         {
-            using var connection = new MySqlConnection(_connectionString);
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
             const string query = @"
-                CREATE TABLE IF NOT EXISTS Users (
-                    Id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                IF OBJECT_ID(N'[dbo].[Users]', 'U') IS NULL
+                BEGIN
+                CREATE TABLE Users (
+                    Id BIGINT IDENTITY(1,1) PRIMARY KEY,
                     Username VARCHAR(100) NOT NULL UNIQUE,
                     Email VARCHAR(255) NOT NULL UNIQUE,
                     PasswordHash VARCHAR(255) NOT NULL,
                     PhoneNumber VARCHAR(30) NOT NULL,
                     ProfileImageUrl TEXT NULL,
                     CreatedAt DATETIME NOT NULL
-                );";
+                );
+                END;";
 
-            using var command = new MySqlCommand(query, connection);
+            using var command = new SqlCommand(query, connection);
             await command.ExecuteNonQueryAsync();
         }
 
         private async Task<UserEntity?> GetUserByIdentifierAsync(string identifier)
         {
-            using var connection = new MySqlConnection(_connectionString);
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
             const string query = @"
-                SELECT Id, Username, Email, PasswordHash, PhoneNumber, ProfileImageUrl, CreatedAt
+                SELECT TOP 1 Id, Username, Email, PasswordHash, PhoneNumber, ProfileImageUrl, CreatedAt
                 FROM Users
-                WHERE Username = @Identifier OR Email = @Identifier
-                LIMIT 1;";
+                WHERE Username = @Identifier OR Email = @Identifier;";
 
-            using var command = new MySqlCommand(query, connection);
+            using var command = new SqlCommand(query, connection);
             command.Parameters.AddWithValue("@Identifier", identifier.Trim());
 
             using var reader = await command.ExecuteReaderAsync();
@@ -294,16 +295,15 @@ namespace coordina.UserManagement.Services
 
         private async Task<UserEntity?> GetUserByIdAsync(long userId)
         {
-            using var connection = new MySqlConnection(_connectionString);
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
             const string query = @"
-                SELECT Id, Username, Email, PasswordHash, PhoneNumber, ProfileImageUrl, CreatedAt
+                SELECT TOP 1 Id, Username, Email, PasswordHash, PhoneNumber, ProfileImageUrl, CreatedAt
                 FROM Users
-                WHERE Id = @Id
-                LIMIT 1;";
+                WHERE Id = @Id;";
 
-            using var command = new MySqlCommand(query, connection);
+            using var command = new SqlCommand(query, connection);
             command.Parameters.AddWithValue("@Id", userId);
 
             using var reader = await command.ExecuteReaderAsync();
@@ -317,17 +317,16 @@ namespace coordina.UserManagement.Services
 
         private async Task<bool> IsUsernameTakenByAnotherUserAsync(long userId, string username)
         {
-            using var connection = new MySqlConnection(_connectionString);
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
             const string query = @"
-                SELECT 1
+                SELECT TOP 1 1
                 FROM Users
                 WHERE LOWER(Username) = LOWER(@Username)
-                  AND Id <> @Id
-                LIMIT 1;";
+                  AND Id <> @Id;";
 
-            using var command = new MySqlCommand(query, connection);
+            using var command = new SqlCommand(query, connection);
             command.Parameters.AddWithValue("@Username", username);
             command.Parameters.AddWithValue("@Id", userId);
 
