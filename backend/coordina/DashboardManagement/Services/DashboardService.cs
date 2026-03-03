@@ -28,27 +28,26 @@ namespace coordina.DashboardManagement.Services
 
             response.ActiveProjects = await GetScalarIntAsync(connection, @"
                 SELECT COUNT(*)
-                FROM DashboardProjectsEvents
-                WHERE ItemType = 'Project' AND Status = 'Active';");
+                FROM ProjectManagementEntities
+                WHERE EntityType = 'Project' AND Status = 'Active';");
 
             response.UpcomingEvents = await GetScalarIntAsync(connection, @"
                 SELECT COUNT(*)
-                FROM DashboardProjectsEvents
-                WHERE ItemType = 'Event' AND EventDate >= UTC_DATE();");
+                FROM ProjectManagementEntities
+                WHERE EntityType = 'Event' AND StartDate >= UTC_DATE();");
 
-            response.PendingTasks = await GetScalarIntAsync(connection, @"
-                SELECT COALESCE(SUM(TaskCount), 0)
-                FROM DashboardWeeklyTasks
-                WHERE WeekStart = @WeekStart;", ("@WeekStart", weekStart));
+            // Removed pending tasks query reliant on DashboardWeeklyTasks
+            response.PendingTasks = 0;
 
             response.DonationsRaised = await GetScalarDecimalAsync(connection, @"
                 SELECT COALESCE(SUM(RaisedAmount), 0)
-                FROM DashboardProjectsEvents
-                WHERE ItemType = 'Donation Drive';");
+                FROM ProjectManagementEntities
+                WHERE EntityType = 'Donation Drive';");
 
             response.RecentActivity = await GetRecentActivityAsync(connection);
             response.UpcomingSchedule = await GetUpcomingAsync(connection);
-            response.WeeklyTasks = await GetWeeklyTasksAsync(connection, weekStart);
+            // Removed weekly tasks query reliant on DashboardWeeklyTasks
+            response.WeeklyTasks = GenerateEmptyWeeklyTasks();
             response.ProjectsEvents = await GetProjectsEventsAsync(connection);
 
             return response;
@@ -60,19 +59,6 @@ namespace coordina.DashboardManagement.Services
             await connection.OpenAsync();
 
             const string query = @"
-                CREATE TABLE IF NOT EXISTS DashboardProjectsEvents (
-                    Id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    Title VARCHAR(160) NOT NULL,
-                    Description TEXT NOT NULL,
-                    ItemType VARCHAR(40) NOT NULL,
-                    Status VARCHAR(40) NOT NULL,
-                    MembersCount INT NOT NULL,
-                    EventDate DATE NOT NULL,
-                    TimeRange VARCHAR(40) NULL,
-                    RaisedAmount DECIMAL(14,2) NULL,
-                    GoalAmount DECIMAL(14,2) NULL,
-                    CreatedAt DATETIME NOT NULL
-                );
 
                 CREATE TABLE IF NOT EXISTS DashboardActivities (
                     Id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -80,14 +66,6 @@ namespace coordina.DashboardManagement.Services
                     ActionText VARCHAR(255) NOT NULL,
                     TargetText VARCHAR(160) NOT NULL,
                     OccurredAt DATETIME NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS DashboardWeeklyTasks (
-                    Id BIGINT AUTO_INCREMENT PRIMARY KEY,
-                    WeekStart DATE NOT NULL,
-                    DayIndex TINYINT NOT NULL,
-                    TaskCount INT NOT NULL,
-                    UNIQUE KEY UX_DashboardWeeklyTasks_WeekDay (WeekStart, DayIndex)
                 );";
 
             using var command = new MySqlCommand(query, connection);
@@ -147,11 +125,11 @@ namespace coordina.DashboardManagement.Services
         {
             var result = new List<UpcomingItem>();
             const string query = @"
-                SELECT EventDate, Title, COALESCE(TimeRange, '09:00 - 16:00') AS TimeRange
-                FROM DashboardProjectsEvents
-                WHERE ItemType = 'Event'
-                  AND EventDate >= UTC_DATE()
-                ORDER BY EventDate ASC
+                SELECT StartDate, Name
+                FROM ProjectManagementEntities
+                WHERE EntityType = 'Event'
+                  AND StartDate >= UTC_DATE()
+                ORDER BY StartDate ASC
                 LIMIT 3;";
 
             using var command = new MySqlCommand(query, connection);
@@ -160,34 +138,17 @@ namespace coordina.DashboardManagement.Services
             {
                 result.Add(new UpcomingItem
                 {
-                    EventDate = Convert.ToDateTime(reader["EventDate"], CultureInfo.InvariantCulture).Date,
-                    Title = reader["Title"].ToString() ?? string.Empty,
-                    TimeRange = reader["TimeRange"].ToString() ?? "09:00 - 16:00"
+                    EventDate = Convert.ToDateTime(reader["StartDate"], CultureInfo.InvariantCulture).Date,
+                    Title = reader["Name"].ToString() ?? string.Empty,
+                    TimeRange = "09:00 - 16:00"
                 });
             }
 
             return result;
         }
 
-        private static async Task<List<WeeklyTaskPoint>> GetWeeklyTasksAsync(MySqlConnection connection, DateTime weekStart)
+        private static List<WeeklyTaskPoint> GenerateEmptyWeeklyTasks()
         {
-            var raw = new Dictionary<int, int>();
-            const string query = @"
-                SELECT DayIndex, TaskCount
-                FROM DashboardWeeklyTasks
-                WHERE WeekStart = @WeekStart;";
-
-            using (var command = new MySqlCommand(query, connection))
-            {
-                command.Parameters.AddWithValue("@WeekStart", weekStart);
-                using var reader = await command.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
-                {
-                    raw[Convert.ToInt32(reader["DayIndex"], CultureInfo.InvariantCulture)] =
-                        Convert.ToInt32(reader["TaskCount"], CultureInfo.InvariantCulture);
-                }
-            }
-
             var dayNames = new[] { "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun" };
             var result = new List<WeeklyTaskPoint>();
             for (var dayIndex = 0; dayIndex < 7; dayIndex++)
@@ -195,7 +156,7 @@ namespace coordina.DashboardManagement.Services
                 result.Add(new WeeklyTaskPoint
                 {
                     Day = dayNames[dayIndex],
-                    Value = raw.TryGetValue(dayIndex, out var value) ? value : 0
+                    Value = 0
                 });
             }
 
@@ -206,8 +167,8 @@ namespace coordina.DashboardManagement.Services
         {
             var result = new List<ProjectEventItem>();
             const string query = @"
-                SELECT Id, Title, Description, ItemType, Status, MembersCount, EventDate, RaisedAmount, GoalAmount
-                FROM DashboardProjectsEvents
+                SELECT Id, Name, Description, EntityType, Status, MembersCount, StartDate, RaisedAmount, GoalAmount
+                FROM ProjectManagementEntities
                 ORDER BY CreatedAt DESC;";
 
             using var command = new MySqlCommand(query, connection);
@@ -217,12 +178,12 @@ namespace coordina.DashboardManagement.Services
                 result.Add(new ProjectEventItem
                 {
                     Id = Convert.ToInt64(reader["Id"], CultureInfo.InvariantCulture),
-                    Title = reader["Title"].ToString() ?? string.Empty,
+                    Title = reader["Name"].ToString() ?? string.Empty,
                     Description = reader["Description"].ToString() ?? string.Empty,
-                    ItemType = reader["ItemType"].ToString() ?? string.Empty,
+                    ItemType = reader["EntityType"].ToString() ?? string.Empty,
                     Status = reader["Status"].ToString() ?? string.Empty,
                     MembersCount = Convert.ToInt32(reader["MembersCount"], CultureInfo.InvariantCulture),
-                    EventDate = Convert.ToDateTime(reader["EventDate"], CultureInfo.InvariantCulture).Date,
+                    EventDate = Convert.ToDateTime(reader["StartDate"], CultureInfo.InvariantCulture).Date,
                     RaisedAmount = reader["RaisedAmount"] is DBNull ? null : Convert.ToDecimal(reader["RaisedAmount"], CultureInfo.InvariantCulture),
                     GoalAmount = reader["GoalAmount"] is DBNull ? null : Convert.ToDecimal(reader["GoalAmount"], CultureInfo.InvariantCulture)
                 });
