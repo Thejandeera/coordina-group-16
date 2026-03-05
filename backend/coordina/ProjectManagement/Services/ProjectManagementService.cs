@@ -1,6 +1,6 @@
 using coordina.ProjectManagement.Interface;
 using coordina.ProjectManagement.Models;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 using System.Data.Common;
 using System.Globalization;
 using System.Text;
@@ -35,9 +35,9 @@ namespace coordina.ProjectManagement.Services
                 FROM ProjectManagementEntities
                 WHERE 1=1");
 
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
-            using var command = new SqlCommand { Connection = connection };
+            using var command = new NpgsqlCommand { Connection = connection };
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -80,17 +80,17 @@ namespace coordina.ProjectManagement.Services
             var membersCount = (entityType == "Event" || entityType == "Project") ? (request.MembersCount ?? 0) : 0;
             var padletEvidence = entityType == "Donation Drive" ? request.PadletEvidence?.Trim() : null;
 
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
 
             const string insertQuery = @"
                 INSERT INTO ProjectManagementEntities
                 (Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence, CreatedAt)
                 VALUES
-                (@Name, @Description, @EntityType, @Status, @StartDate, @EndDate, @Goals, @MembersCount, @RaisedAmount, @GoalAmount, @PadletEvidence, GETUTCDATE());
-                SELECT CAST(SCOPE_IDENTITY() AS BIGINT);";
+                (@Name, @Description, @EntityType, @Status, @StartDate, @EndDate, @Goals, @MembersCount, @RaisedAmount, @GoalAmount, @PadletEvidence, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                RETURNING Id;";
 
-            using var insertCommand = new SqlCommand(insertQuery, connection);
+            using var insertCommand = new NpgsqlCommand(insertQuery, connection);
             insertCommand.Parameters.AddWithValue("@Name", request.Name.Trim());
             insertCommand.Parameters.AddWithValue("@Description", request.Description.Trim());
             insertCommand.Parameters.AddWithValue("@EntityType", entityType);
@@ -110,7 +110,7 @@ namespace coordina.ProjectManagement.Services
                 FROM ProjectManagementEntities
                 WHERE Id = @Id;";
 
-            using var fetchCommand = new SqlCommand(fetchQuery, connection);
+            using var fetchCommand = new NpgsqlCommand(fetchQuery, connection);
             fetchCommand.Parameters.AddWithValue("@Id", insertedId);
             using var reader = await fetchCommand.ExecuteReaderAsync();
             if (!await reader.ReadAsync())
@@ -139,7 +139,7 @@ namespace coordina.ProjectManagement.Services
             var membersCount = (entityType == "Event" || entityType == "Project") ? (request.MembersCount ?? 0) : 0;
             var padletEvidence = entityType == "Donation Drive" ? request.PadletEvidence?.Trim() : null;
 
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
 
             const string updateQuery = @"
@@ -157,7 +157,7 @@ namespace coordina.ProjectManagement.Services
                     PadletEvidence = @PadletEvidence
                 WHERE Id = @Id;";
 
-            using var updateCommand = new SqlCommand(updateQuery, connection);
+            using var updateCommand = new NpgsqlCommand(updateQuery, connection);
             updateCommand.Parameters.AddWithValue("@Id", id);
             updateCommand.Parameters.AddWithValue("@Name", request.Name.Trim());
             updateCommand.Parameters.AddWithValue("@Description", request.Description.Trim());
@@ -175,7 +175,7 @@ namespace coordina.ProjectManagement.Services
             if (rowsAffected == 0)
             {
                 const string checkQuery = "SELECT COUNT(*) FROM ProjectManagementEntities WHERE Id = @Id;";
-                using var checkCommand = new SqlCommand(checkQuery, connection);
+                using var checkCommand = new NpgsqlCommand(checkQuery, connection);
                 checkCommand.Parameters.AddWithValue("@Id", id);
                 var exists = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()) > 0;
 
@@ -190,7 +190,7 @@ namespace coordina.ProjectManagement.Services
                 FROM ProjectManagementEntities
                 WHERE Id = @Id;";
 
-            using var fetchCommand = new SqlCommand(fetchQuery, connection);
+            using var fetchCommand = new NpgsqlCommand(fetchQuery, connection);
             fetchCommand.Parameters.AddWithValue("@Id", id);
             using var reader = await fetchCommand.ExecuteReaderAsync();
             if (!await reader.ReadAsync())
@@ -209,14 +209,14 @@ namespace coordina.ProjectManagement.Services
         {
             await EnsureTableAsync();
 
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
 
             // Fetch entity name for logging before it gets deleted
             string? entityName = null;
             string? entityType = null;
             const string fetchQuery = "SELECT Name, EntityType FROM ProjectManagementEntities WHERE Id = @Id;";
-            using (var fetchCommand = new SqlCommand(fetchQuery, connection))
+            using (var fetchCommand = new NpgsqlCommand(fetchQuery, connection))
             {
                 fetchCommand.Parameters.AddWithValue("@Id", id);
                 using var reader = await fetchCommand.ExecuteReaderAsync();
@@ -231,7 +231,7 @@ namespace coordina.ProjectManagement.Services
                 DELETE FROM ProjectManagementEntities
                 WHERE Id = @Id;";
 
-            using var deleteCommand = new SqlCommand(deleteQuery, connection);
+            using var deleteCommand = new NpgsqlCommand(deleteQuery, connection);
             deleteCommand.Parameters.AddWithValue("@Id", id);
 
             var rowsAffected = await deleteCommand.ExecuteNonQueryAsync();
@@ -248,14 +248,12 @@ namespace coordina.ProjectManagement.Services
 
         private async Task EnsureTableAsync()
         {
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
 
             const string query = @"
-                IF OBJECT_ID(N'[dbo].[ProjectManagementEntities]', 'U') IS NULL
-                BEGIN
-                CREATE TABLE ProjectManagementEntities (
-                    Id BIGINT IDENTITY(1,1) PRIMARY KEY,
+                CREATE TABLE IF NOT EXISTS ProjectManagementEntities (
+                    Id BIGSERIAL PRIMARY KEY,
                     Name VARCHAR(160) NOT NULL,
                     Description TEXT NOT NULL,
                     EntityType VARCHAR(40) NOT NULL,
@@ -267,22 +265,18 @@ namespace coordina.ProjectManagement.Services
                     RaisedAmount DECIMAL(14,2) NULL,
                     GoalAmount DECIMAL(14,2) NULL,
                     PadletEvidence VARCHAR(500) NULL,
-                    CreatedAt DATETIME NOT NULL
-                );
-                END;";
+                    CreatedAt TIMESTAMP NOT NULL
+                );";
 
-            using var command = new SqlCommand(query, connection);
+            using var command = new NpgsqlCommand(query, connection);
             await command.ExecuteNonQueryAsync();
 
             // Check if PadletEvidence column exists, and add it if it doesnt (for backward compatibility during migration)
             try
             {
                 const string alterQuery = @"
-                    IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID(N'[dbo].[ProjectManagementEntities]') AND name = 'PadletEvidence')
-                    BEGIN
-                        ALTER TABLE ProjectManagementEntities ADD PadletEvidence VARCHAR(500) NULL;
-                    END";
-                using var alterCommand = new SqlCommand(alterQuery, connection);
+                    ALTER TABLE ProjectManagementEntities ADD COLUMN IF NOT EXISTS PadletEvidence VARCHAR(500);";
+                using var alterCommand = new NpgsqlCommand(alterQuery, connection);
                 await alterCommand.ExecuteNonQueryAsync();
             }
             catch (Exception)
@@ -365,14 +359,14 @@ namespace coordina.ProjectManagement.Services
         {
             try
             {
-                using var connection = new SqlConnection(_connectionString);
+                using var connection = new NpgsqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 const string query = @"
                     INSERT INTO DashboardActivities (Actor, ActionText, TargetText, OccurredAt)
-                    VALUES (@Actor, @ActionText, @TargetText, GETUTCDATE());";
+                    VALUES (@Actor, @ActionText, @TargetText, CURRENT_TIMESTAMP AT TIME ZONE 'UTC');";
 
-                using var command = new SqlCommand(query, connection);
+                using var command = new NpgsqlCommand(query, connection);
                 // Currently using a placeholder "A user" until RBAC is fully implemented
                 command.Parameters.AddWithValue("@Actor", "A user");
                 command.Parameters.AddWithValue("@ActionText", actionText);
