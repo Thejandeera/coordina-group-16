@@ -16,6 +16,7 @@ namespace coordina.ProjectManagement.Models
         public decimal? RaisedAmount { get; set; }
         public decimal? GoalAmount { get; set; }
         public string? PadletEvidence { get; set; }
+        public long? CreatedByUserId { get; set; }
     }
 
     public class CreateProjectEntityRequest

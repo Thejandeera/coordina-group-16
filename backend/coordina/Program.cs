@@ -1,7 +1,5 @@
 using DotNetEnv;
 using coordina.Configurations;
-using coordina.DashboardManagement.Interface;
-using coordina.DashboardManagement.Services;
 using coordina.ProjectManagement.Interface;
 using coordina.ProjectManagement.Services;
 using coordina.TestManagement.Services;
@@ -11,7 +9,7 @@ using coordina.UserManagement.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 using System.Text;
 
 
@@ -39,12 +37,11 @@ builder.Configuration["Cloudinary:CloudName"] = cloudinaryCloudName;
 builder.Configuration["Cloudinary:ApiKey"] = cloudinaryApiKey;
 builder.Configuration["Cloudinary:ApiSecret"] = cloudinaryApiSecret;
 
-builder.Services.AddSingleton(new SqlConnection(connectionString));
+builder.Services.AddSingleton(new NpgsqlConnection(connectionString));
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("Cloudinary"));
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IProjectManagementService, ProjectManagementService>();
 
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
@@ -143,7 +140,7 @@ app.MapGet("/ping-env", () =>
     try
     {
         var connStr = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
-        using var connection = new Microsoft.Data.SqlClient.SqlConnection(connStr);
+        using var connection = new Npgsql.NpgsqlConnection(connStr);
         connection.Open();
         dbStatus = "Connected successfully!";
     }
