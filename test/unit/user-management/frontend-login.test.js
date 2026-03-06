@@ -32,7 +32,7 @@ describe('Frontend-Style Login (camelCase fields)', () => {
         } catch (err) {
             console.error("Setup signup failed", err);
         }
-    }, 10000); // Increased timeout for setup
+    }); // Rely on global jest.setTimeout(30000)
 
     test('Valid case: Login with frontend identifier (username)', async () => {
         const payload = {
