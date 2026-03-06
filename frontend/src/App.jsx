@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import Login from './components/Login'
-import Signup from './components/Signup'
-import Dashboard from './components/Dashboard'
+import Login from './Pages/Login'
+import Signup from './Pages/Signup'
+import Dashboard from './Pages/Dashboard'
 import { clearAuthTokens, clearSessionUserData, getSessionUserData } from './lib/authClient'
 
 const PATHS = {
@@ -19,6 +19,7 @@ const PATHS = {
 }
 
 const protectedPaths = [
+  PATHS.root,
   PATHS.dashboard,
   PATHS.projectsEvents,
   PATHS.bookings,
@@ -56,7 +57,6 @@ function App() {
 
   return (
     <Routes>
-      <Route path={PATHS.root} element={<Navigate to={user ? PATHS.dashboard : PATHS.login} replace />} />
       <Route
         path={PATHS.login}
         element={
