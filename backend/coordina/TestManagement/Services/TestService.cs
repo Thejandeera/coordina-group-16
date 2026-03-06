@@ -1,7 +1,7 @@
 using coordina.TestManagement.Entities;
 using coordina.TestManagement.Interface;
-// Make sure you have installed the 'MySql.Data' NuGet package.
-using MySql.Data.MySqlClient;
+// Make sure you have installed the 'Npgsql' NuGet package.
+using Npgsql;
 using System.Data;
 
 namespace coordina.TestManagement.Services
@@ -21,15 +21,15 @@ namespace coordina.TestManagement.Services
         {
             var tests = new List<TestEntity>();
 
-            // Use ADO.NET to connect to the MySQL database.
-            using (var connection = new MySqlConnection(_connectionString))
+            // Use ADO.NET to connect to the PostgreSQL database.
+            using (var connection = new NpgsqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
 
                 // Define your SQL query. Make sure a 'Tests' table exists in your DB.
                 string query = "SELECT Id, Name, Description FROM Tests";
 
-                using (var command = new MySqlCommand(query, connection))
+                using (var command = new NpgsqlCommand(query, connection))
                 using (var reader = await command.ExecuteReaderAsync())
                 {
                     // Read the data row by row.

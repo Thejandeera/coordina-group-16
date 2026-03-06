@@ -1,6 +1,6 @@
 using coordina.ProjectManagement.Interface;
 using coordina.ProjectManagement.Models;
-using MySql.Data.MySqlClient;
+using Npgsql;
 using System.Data.Common;
 using System.Globalization;
 using System.Text;
@@ -31,13 +31,13 @@ namespace coordina.ProjectManagement.Services
 
             var items = new List<ProjectEntityItemResponse>();
             var queryBuilder = new StringBuilder(@"
-                SELECT Id, Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence
+                SELECT Id, Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence, CreatedByUserId
                 FROM ProjectManagementEntities
                 WHERE 1=1");
 
-            using var connection = new MySqlConnection(_connectionString);
+            using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
-            using var command = new MySqlCommand { Connection = connection };
+            using var command = new NpgsqlCommand { Connection = connection };
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -63,7 +63,46 @@ namespace coordina.ProjectManagement.Services
             return items;
         }
 
-        public async Task<ProjectEntityItemResponse> CreateEntityAsync(CreateProjectEntityRequest request)
+        public async Task<IReadOnlyList<ProjectEntityItemResponse>> GetEntitiesByUserIdAsync(long userId, string? search, string? type)
+        {
+            await EnsureTableAsync();
+
+            var items = new List<ProjectEntityItemResponse>();
+            var queryBuilder = new StringBuilder(@"
+                SELECT Id, Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence, CreatedByUserId
+                FROM ProjectManagementEntities
+                WHERE CreatedByUserId = @UserId");
+
+            using var connection = new NpgsqlConnection(_connectionString);
+            await connection.OpenAsync();
+            using var command = new NpgsqlCommand { Connection = connection };
+            command.Parameters.AddWithValue("@UserId", userId);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                queryBuilder.Append(" AND (Name LIKE @Search OR Description LIKE @Search)");
+                command.Parameters.AddWithValue("@Search", $"%{search.Trim()}%");
+            }
+
+            if (!string.IsNullOrWhiteSpace(type) && !string.Equals(type, "All Types", StringComparison.OrdinalIgnoreCase))
+            {
+                queryBuilder.Append(" AND EntityType = @EntityType");
+                command.Parameters.AddWithValue("@EntityType", NormalizeType(type));
+            }
+
+            queryBuilder.Append(" ORDER BY CreatedAt DESC;");
+            command.CommandText = queryBuilder.ToString();
+
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                items.Add(MapEntity(reader));
+            }
+
+            return items;
+        }
+
+        public async Task<ProjectEntityItemResponse> CreateEntityAsync(long userId, CreateProjectEntityRequest request)
         {
             await EnsureTableAsync();
 
@@ -80,17 +119,17 @@ namespace coordina.ProjectManagement.Services
             var membersCount = (entityType == "Event" || entityType == "Project") ? (request.MembersCount ?? 0) : 0;
             var padletEvidence = entityType == "Donation Drive" ? request.PadletEvidence?.Trim() : null;
 
-            using var connection = new MySqlConnection(_connectionString);
+            using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
 
             const string insertQuery = @"
                 INSERT INTO ProjectManagementEntities
-                (Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence, CreatedAt)
+                (Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence, CreatedByUserId, CreatedAt)
                 VALUES
-                (@Name, @Description, @EntityType, @Status, @StartDate, @EndDate, @Goals, @MembersCount, @RaisedAmount, @GoalAmount, @PadletEvidence, UTC_TIMESTAMP());
-                SELECT LAST_INSERT_ID();";
+                (@Name, @Description, @EntityType, @Status, @StartDate, @EndDate, @Goals, @MembersCount, @RaisedAmount, @GoalAmount, @PadletEvidence, @CreatedByUserId, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                RETURNING Id;";
 
-            using var insertCommand = new MySqlCommand(insertQuery, connection);
+            using var insertCommand = new NpgsqlCommand(insertQuery, connection);
             insertCommand.Parameters.AddWithValue("@Name", request.Name.Trim());
             insertCommand.Parameters.AddWithValue("@Description", request.Description.Trim());
             insertCommand.Parameters.AddWithValue("@EntityType", entityType);
@@ -102,15 +141,16 @@ namespace coordina.ProjectManagement.Services
             insertCommand.Parameters.AddWithValue("@RaisedAmount", raisedAmount.HasValue ? raisedAmount.Value : DBNull.Value);
             insertCommand.Parameters.AddWithValue("@GoalAmount", goalAmount.HasValue ? goalAmount.Value : DBNull.Value);
             insertCommand.Parameters.AddWithValue("@PadletEvidence", string.IsNullOrWhiteSpace(padletEvidence) ? DBNull.Value : padletEvidence);
+            insertCommand.Parameters.AddWithValue("@CreatedByUserId", userId);
 
             var insertedId = Convert.ToInt64(await insertCommand.ExecuteScalarAsync(), CultureInfo.InvariantCulture);
 
             const string fetchQuery = @"
-                SELECT Id, Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence
+                SELECT Id, Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence, CreatedByUserId
                 FROM ProjectManagementEntities
                 WHERE Id = @Id;";
 
-            using var fetchCommand = new MySqlCommand(fetchQuery, connection);
+            using var fetchCommand = new NpgsqlCommand(fetchQuery, connection);
             fetchCommand.Parameters.AddWithValue("@Id", insertedId);
             using var reader = await fetchCommand.ExecuteReaderAsync();
             if (!await reader.ReadAsync())
@@ -139,7 +179,7 @@ namespace coordina.ProjectManagement.Services
             var membersCount = (entityType == "Event" || entityType == "Project") ? (request.MembersCount ?? 0) : 0;
             var padletEvidence = entityType == "Donation Drive" ? request.PadletEvidence?.Trim() : null;
 
-            using var connection = new MySqlConnection(_connectionString);
+            using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
 
             const string updateQuery = @"
@@ -157,7 +197,7 @@ namespace coordina.ProjectManagement.Services
                     PadletEvidence = @PadletEvidence
                 WHERE Id = @Id;";
 
-            using var updateCommand = new MySqlCommand(updateQuery, connection);
+            using var updateCommand = new NpgsqlCommand(updateQuery, connection);
             updateCommand.Parameters.AddWithValue("@Id", id);
             updateCommand.Parameters.AddWithValue("@Name", request.Name.Trim());
             updateCommand.Parameters.AddWithValue("@Description", request.Description.Trim());
@@ -175,7 +215,7 @@ namespace coordina.ProjectManagement.Services
             if (rowsAffected == 0)
             {
                 const string checkQuery = "SELECT COUNT(*) FROM ProjectManagementEntities WHERE Id = @Id;";
-                using var checkCommand = new MySqlCommand(checkQuery, connection);
+                using var checkCommand = new NpgsqlCommand(checkQuery, connection);
                 checkCommand.Parameters.AddWithValue("@Id", id);
                 var exists = Convert.ToInt32(await checkCommand.ExecuteScalarAsync()) > 0;
 
@@ -186,11 +226,11 @@ namespace coordina.ProjectManagement.Services
             }
 
             const string fetchQuery = @"
-                SELECT Id, Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence
+                SELECT Id, Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence, CreatedByUserId
                 FROM ProjectManagementEntities
                 WHERE Id = @Id;";
 
-            using var fetchCommand = new MySqlCommand(fetchQuery, connection);
+            using var fetchCommand = new NpgsqlCommand(fetchQuery, connection);
             fetchCommand.Parameters.AddWithValue("@Id", id);
             using var reader = await fetchCommand.ExecuteReaderAsync();
             if (!await reader.ReadAsync())
@@ -209,14 +249,14 @@ namespace coordina.ProjectManagement.Services
         {
             await EnsureTableAsync();
 
-            using var connection = new MySqlConnection(_connectionString);
+            using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
 
             // Fetch entity name for logging before it gets deleted
             string? entityName = null;
             string? entityType = null;
             const string fetchQuery = "SELECT Name, EntityType FROM ProjectManagementEntities WHERE Id = @Id;";
-            using (var fetchCommand = new MySqlCommand(fetchQuery, connection))
+            using (var fetchCommand = new NpgsqlCommand(fetchQuery, connection))
             {
                 fetchCommand.Parameters.AddWithValue("@Id", id);
                 using var reader = await fetchCommand.ExecuteReaderAsync();
@@ -231,7 +271,7 @@ namespace coordina.ProjectManagement.Services
                 DELETE FROM ProjectManagementEntities
                 WHERE Id = @Id;";
 
-            using var deleteCommand = new MySqlCommand(deleteQuery, connection);
+            using var deleteCommand = new NpgsqlCommand(deleteQuery, connection);
             deleteCommand.Parameters.AddWithValue("@Id", id);
 
             var rowsAffected = await deleteCommand.ExecuteNonQueryAsync();
@@ -248,12 +288,12 @@ namespace coordina.ProjectManagement.Services
 
         private async Task EnsureTableAsync()
         {
-            using var connection = new MySqlConnection(_connectionString);
+            using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
 
             const string query = @"
                 CREATE TABLE IF NOT EXISTS ProjectManagementEntities (
-                    Id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                    Id BIGSERIAL PRIMARY KEY,
                     Name VARCHAR(160) NOT NULL,
                     Description TEXT NOT NULL,
                     EntityType VARCHAR(40) NOT NULL,
@@ -265,23 +305,35 @@ namespace coordina.ProjectManagement.Services
                     RaisedAmount DECIMAL(14,2) NULL,
                     GoalAmount DECIMAL(14,2) NULL,
                     PadletEvidence VARCHAR(500) NULL,
-                    CreatedAt DATETIME NOT NULL
+                    CreatedAt TIMESTAMP NOT NULL
                 );";
 
-            using var command = new MySqlCommand(query, connection);
+            using var command = new NpgsqlCommand(query, connection);
             await command.ExecuteNonQueryAsync();
 
             // Check if PadletEvidence column exists, and add it if it doesnt (for backward compatibility during migration)
             try
             {
-                const string alterQuery = "ALTER TABLE ProjectManagementEntities ADD COLUMN IF NOT EXISTS PadletEvidence VARCHAR(500) NULL;";
-                using var alterCommand = new MySqlCommand(alterQuery, connection);
+                const string alterQuery = @"
+                    ALTER TABLE ProjectManagementEntities ADD COLUMN IF NOT EXISTS PadletEvidence VARCHAR(500);
+                    ALTER TABLE ProjectManagementEntities ADD COLUMN IF NOT EXISTS CreatedByUserId BIGINT NULL;
+                ";
+                using var alterCommand = new NpgsqlCommand(alterQuery, connection);
                 await alterCommand.ExecuteNonQueryAsync();
             }
             catch (Exception)
             {
                 // Ignore if error, it might mean the syntax isn't perfectly supported on this MySQL version or column exists via other means
             }
+        }
+
+        private static DateTime ParseDate(object value)
+        {
+            if (value is DateOnly dateOnly)
+            {
+                return dateOnly.ToDateTime(TimeOnly.MinValue);
+            }
+            return Convert.ToDateTime(value, CultureInfo.InvariantCulture).Date;
         }
 
         private static ProjectEntityItemResponse MapEntity(DbDataReader reader)
@@ -293,15 +345,14 @@ namespace coordina.ProjectManagement.Services
                 Description = reader["Description"].ToString() ?? string.Empty,
                 Type = reader["EntityType"].ToString() ?? string.Empty,
                 Status = reader["Status"].ToString() ?? string.Empty,
-                StartDate = Convert.ToDateTime(reader["StartDate"], CultureInfo.InvariantCulture).Date,
-                EndDate = reader["EndDate"] is DBNull
-                    ? null
-                    : Convert.ToDateTime(reader["EndDate"], CultureInfo.InvariantCulture).Date,
+                StartDate = ParseDate(reader["StartDate"]),
+                EndDate = reader["EndDate"] is DBNull ? null : ParseDate(reader["EndDate"]),
                 Goals = reader["Goals"] is DBNull ? null : reader["Goals"].ToString(),
                 MembersCount = Convert.ToInt32(reader["MembersCount"], CultureInfo.InvariantCulture),
                 RaisedAmount = reader["RaisedAmount"] is DBNull ? null : Convert.ToDecimal(reader["RaisedAmount"], CultureInfo.InvariantCulture),
                 GoalAmount = reader["GoalAmount"] is DBNull ? null : Convert.ToDecimal(reader["GoalAmount"], CultureInfo.InvariantCulture),
-                PadletEvidence = reader["PadletEvidence"] is DBNull ? null : reader["PadletEvidence"].ToString()
+                PadletEvidence = reader["PadletEvidence"] is DBNull ? null : reader["PadletEvidence"].ToString(),
+                CreatedByUserId = reader["CreatedByUserId"] is DBNull ? null : Convert.ToInt64(reader["CreatedByUserId"], CultureInfo.InvariantCulture)
             };
         }
 
@@ -358,14 +409,14 @@ namespace coordina.ProjectManagement.Services
         {
             try
             {
-                using var connection = new MySqlConnection(_connectionString);
+                using var connection = new NpgsqlConnection(_connectionString);
                 await connection.OpenAsync();
 
                 const string query = @"
                     INSERT INTO DashboardActivities (Actor, ActionText, TargetText, OccurredAt)
-                    VALUES (@Actor, @ActionText, @TargetText, UTC_TIMESTAMP());";
+                    VALUES (@Actor, @ActionText, @TargetText, CURRENT_TIMESTAMP AT TIME ZONE 'UTC');";
 
-                using var command = new MySqlCommand(query, connection);
+                using var command = new NpgsqlCommand(query, connection);
                 // Currently using a placeholder "A user" until RBAC is fully implemented
                 command.Parameters.AddWithValue("@Actor", "A user");
                 command.Parameters.AddWithValue("@ActionText", actionText);

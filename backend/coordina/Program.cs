@@ -1,7 +1,5 @@
 using DotNetEnv;
 using coordina.Configurations;
-using coordina.DashboardManagement.Interface;
-using coordina.DashboardManagement.Services;
 using coordina.ProjectManagement.Interface;
 using coordina.ProjectManagement.Services;
 using coordina.TestManagement.Services;
@@ -11,7 +9,7 @@ using coordina.UserManagement.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-using MySql.Data.MySqlClient;
+using Npgsql;
 using System.Text;
 
 
@@ -19,11 +17,7 @@ Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
 
-var dbHost = Environment.GetEnvironmentVariable("DB_HOST") ?? throw new InvalidOperationException("DB_HOST environment variable is missing.");
-var dbPort = Environment.GetEnvironmentVariable("DB_PORT") ?? throw new InvalidOperationException("DB_PORT environment variable is missing.");
-var dbUser = Environment.GetEnvironmentVariable("DB_USER") ?? throw new InvalidOperationException("DB_USER environment variable is missing.");
-var dbPassword = Environment.GetEnvironmentVariable("DB_PASSWORD") ?? throw new InvalidOperationException("DB_PASSWORD environment variable is missing.");
-var dbName = Environment.GetEnvironmentVariable("DB_NAME") ?? throw new InvalidOperationException("DB_NAME environment variable is missing.");
+var connectionString = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING") ?? throw new InvalidOperationException("DB_CONNECTION_STRING environment variable is missing.");
 var jwtIssuer = Environment.GetEnvironmentVariable("JWT_ISSUER") ?? throw new InvalidOperationException("JWT_ISSUER environment variable is missing.");
 var jwtAudience = Environment.GetEnvironmentVariable("JWT_AUDIENCE") ?? throw new InvalidOperationException("JWT_AUDIENCE environment variable is missing.");
 var accessTokenSecret = Environment.GetEnvironmentVariable("JWT_ACCESS_SECRET") ?? throw new InvalidOperationException("JWT_ACCESS_SECRET environment variable is missing.");
@@ -32,9 +26,6 @@ var cloudinaryCloudName = Environment.GetEnvironmentVariable("CLOUDINARY_CLOUD_N
 var cloudinaryApiKey = Environment.GetEnvironmentVariable("CLOUDINARY_API_KEY") ?? string.Empty;
 var cloudinaryApiSecret = Environment.GetEnvironmentVariable("CLOUDINARY_API_SECRET") ?? string.Empty;
 var frontendUrl = Environment.GetEnvironmentVariable("FRONTEND_URL") ?? throw new InvalidOperationException("FRONTEND_URL environment variable is missing.");
-
-var connectionString =
-    $"Server={dbHost};Port={dbPort};Database={dbName};Uid={dbUser};Pwd={dbPassword};";
 
 // Update configuration so other services (like TestService) can use it
 builder.Configuration["ConnectionStrings:DefaultConnection"] = connectionString;
@@ -46,12 +37,11 @@ builder.Configuration["Cloudinary:CloudName"] = cloudinaryCloudName;
 builder.Configuration["Cloudinary:ApiKey"] = cloudinaryApiKey;
 builder.Configuration["Cloudinary:ApiSecret"] = cloudinaryApiSecret;
 
-builder.Services.AddSingleton(new MySqlConnection(connectionString));
+builder.Services.AddSingleton(new NpgsqlConnection(connectionString));
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection("Cloudinary"));
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<IProjectManagementService, ProjectManagementService>();
 
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
@@ -83,8 +73,7 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy.WithOrigins(
-                frontendUrl)
+        policy.AllowAnyOrigin()
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
@@ -126,6 +115,45 @@ if (!app.Environment.IsDevelopment())
 app.UseCors("FrontendPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Minimal API test endpoint
+app.MapGet("/ping", () => "hello from backedn");
+
+app.MapGet("/ping-env", () =>
+{
+    var vars = new string[] {
+        "DB_CONNECTION_STRING",
+        "JWT_ISSUER",
+        "JWT_AUDIENCE",
+        "JWT_ACCESS_SECRET",
+        "JWT_REFRESH_SECRET",
+        "CLOUDINARY_CLOUD_NAME",
+        "CLOUDINARY_API_KEY",
+        "CLOUDINARY_API_SECRET",
+        "FRONTEND_URL"
+    };
+
+    var missing = vars.Where(v => string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(v))).ToList();
+
+    string dbStatus = "Unknown";
+    string dbError = "";
+    try
+    {
+        var connStr = Environment.GetEnvironmentVariable("DB_CONNECTION_STRING");
+        using var connection = new Npgsql.NpgsqlConnection(connStr);
+        connection.Open();
+        dbStatus = "Connected successfully!";
+    }
+    catch (Exception ex)
+    {
+        dbStatus = "Connection failed";
+        dbError = ex.Message;
+    }
+
+    return missing.Any()
+        ? Results.Ok(new { status = "Missing Variables", missing, dbStatus, dbError })
+        : Results.Ok(new { status = "All variables present", dbStatus, dbError });
+});
 
 app.MapControllers();
 

@@ -2,6 +2,7 @@ using coordina.ProjectManagement.Interface;
 using coordina.ProjectManagement.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace coordina.ProjectManagement.Controllers
 {
@@ -23,6 +24,26 @@ namespace coordina.ProjectManagement.Controllers
             try
             {
                 var entities = await _projectManagementService.GetEntitiesAsync(search, type);
+                return Ok(entities);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("user/{userId}/entities")]
+        public async Task<IActionResult> GetEntitiesByUserId(long userId, [FromQuery] string? search = null, [FromQuery] string? type = null)
+        {
+            try
+            {
+                var currentUserIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(currentUserIdString) || !long.TryParse(currentUserIdString, out var currentUserId) || currentUserId != userId)
+                {
+                    return Forbid();
+                }
+
+                var entities = await _projectManagementService.GetEntitiesByUserIdAsync(userId, search, type);
                 return Ok(entities);
             }
             catch (ArgumentException ex)
@@ -54,7 +75,13 @@ namespace coordina.ProjectManagement.Controllers
 
             try
             {
-                var created = await _projectManagementService.CreateEntityAsync(request);
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userIdString) || !long.TryParse(userIdString, out var userId))
+                {
+                    return Unauthorized(new { message = "User is not logged in." });
+                }
+
+                var created = await _projectManagementService.CreateEntityAsync(userId, request);
                 return CreatedAtAction(nameof(GetEntities), new { id = created.Id }, created);
             }
             catch (ArgumentException ex)

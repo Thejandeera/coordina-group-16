@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { authFetch, readJsonSafe, setSessionUserData } from '../lib/authClient'
+import { authFetch, readJsonSafe, setSessionUserData, getSessionUserData } from '../lib/authClient'
 import Sidebar from './Sidebar'
 import UpdateProfile from './UpdateProfile'
 import ProjectsEvents from './ProjectsEvents'
 
-const navItems = ['Dashboard', 'Projects & Events', 'Bookings', 'Analytics', 'Settings']
+const navItems = ['Dashboard', 'Projects & Events', 'Bookings', 'Calendar', 'Forms', 'Analytics', 'Settings']
 const defaultPaths = {
   dashboard: '/dashboard',
   projectsEvents: '/projects-events',
   bookings: '/bookings',
+  calendar: '/calendar',
+  forms: '/forms',
   analytics: '/analytics',
   settings: '/settings',
 }
@@ -55,6 +57,8 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
   const dashboardPath = resolvedPaths.dashboard
   const projectsEventsPath = resolvedPaths.projectsEvents
   const bookingsPath = resolvedPaths.bookings
+  const calendarPath = resolvedPaths.calendar
+  const formsPath = resolvedPaths.forms
   const analyticsPath = resolvedPaths.analytics
   const settingsPath = resolvedPaths.settings
 
@@ -62,6 +66,8 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
     Dashboard: dashboardPath,
     'Projects & Events': projectsEventsPath,
     Bookings: bookingsPath,
+    Calendar: calendarPath,
+    Forms: formsPath,
     Analytics: analyticsPath,
     Settings: settingsPath,
   }
@@ -117,13 +123,17 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
       nextActive = 'Projects & Events'
     } else if (normalizedPath === bookingsPath) {
       nextActive = 'Bookings'
+    } else if (normalizedPath === calendarPath) {
+      nextActive = 'Calendar'
+    } else if (normalizedPath === formsPath) {
+      nextActive = 'Forms'
     } else if (normalizedPath === analyticsPath) {
       nextActive = 'Analytics'
     } else if (normalizedPath === settingsPath) {
       nextActive = 'Settings'
     }
     setActiveNav(nextActive)
-  }, [analyticsPath, bookingsPath, dashboardPath, location.pathname, projectsEventsPath, settingsPath])
+  }, [analyticsPath, bookingsPath, calendarPath, dashboardPath, formsPath, location.pathname, projectsEventsPath, settingsPath])
 
   useEffect(() => {
     setForm((prev) => ({
@@ -167,7 +177,12 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
   const fetchProjectEntities = useCallback(async () => {
     setProjectEntitiesLoading(true)
     try {
-      const response = await authFetch('/api/project-management/entities')
+      const userData = getSessionUserData()
+      if (!userData?.id) {
+        throw new Error('User not logged in.')
+      }
+
+      const response = await authFetch(`/api/project-management/user/${userData.id}/entities`)
       const data = await readJsonSafe(response)
       if (!response.ok || !Array.isArray(data)) {
         setProjectEntitiesNotice({ text: 'Could not load projects and events.', type: 'error' })
@@ -190,73 +205,81 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
   useEffect(() => {
     let cancelled = false
 
-    const fetchDashboardOverview = async () => {
+    const calculateDashboardOverview = () => {
+      if (cancelled || projectEntitiesLoading) return
+
       try {
-        const response = await authFetch('/api/dashboard/overview')
-        const data = await readJsonSafe(response)
-        if (!response.ok || !data || cancelled) {
-          if (!cancelled) {
-            setDashboardNotice({ text: 'Could not load dashboard overview.', type: 'error' })
+        const now = new Date()
+        let activeProjectsCount = 0
+        let upcomingEventsCount = 0
+        let totalRaised = 0
+
+        const recentActivityLog = []
+        const upcomingLog = []
+
+        projectEntities.forEach((item) => {
+          if (item.type === 'Project' && item.status === 'Active') {
+            activeProjectsCount++
           }
-          return
-        }
-        setDashboardNotice({ text: '', type: '' })
+
+          if (item.type === 'Event') {
+            const eventDate = item.startDate ? new Date(item.startDate) : null
+            if (eventDate && eventDate >= now.setHours(0, 0, 0, 0) / 1) {
+              upcomingEventsCount++
+            }
+          }
+
+          if (item.type === 'Donation Drive') {
+            totalRaised += Number(item.raisedAmount || 0)
+          }
+        })
+
+        // Sort events chronologically manually to show upcoming
+        const futureEvents = projectEntities
+          .filter(e => e.type === 'Event' && e.startDate && new Date(e.startDate) >= now.setHours(0, 0, 0, 0) / 1)
+          .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+          .slice(0, 3)
+
+        const recentSorted = [...projectEntities]
+          .filter(e => e.startDate)
+          .sort((a, b) => new Date(b.startDate) - new Date(a.startDate))
+          .slice(0, 5)
 
         setDashboardStats([
-          { label: 'Active Projects', value: String(data.activeProjects ?? 0) },
-          { label: 'Upcoming Events', value: String(data.upcomingEvents ?? 0) },
-          { label: 'Pending Tasks', value: String(data.pendingTasks ?? 0) },
-          { label: 'Donations Raised', value: `LKR ${Number(data.donationsRaised ?? 0).toLocaleString()}` },
+          { label: 'Active projects and events', value: String(activeProjectsCount) },
+          { label: 'Upcoming Events and Projects', value: String(upcomingEventsCount) },
+          { label: 'Pending Tasks', value: String(0) },
+          { label: 'Donations Raised', value: `LKR ${totalRaised.toLocaleString()}` },
         ])
 
-        const mappedActivity = Array.isArray(data.recentActivity)
-          ? data.recentActivity.map((item) => ({
-              actor: item.actor ?? '',
-              action: item.action ?? '',
-              target: item.target ?? '',
-              time: formatTimeAgo(item.occurredAt),
-            }))
-          : []
-        setDashboardActivity(mappedActivity)
+        setDashboardActivity(recentSorted.map((item) => ({
+          actor: user?.username || 'You',
+          action: 'created or managed',
+          target: item.name,
+          time: formatTimeAgo(item.startDate),
+        })))
 
-        const mappedUpcoming = Array.isArray(data.upcomingSchedule)
-          ? data.upcomingSchedule.map((item) => {
-              const eventDate = new Date(item.eventDate)
-              const day = Number.isNaN(eventDate.getTime()) ? '--' : String(eventDate.getDate())
-              const month = Number.isNaN(eventDate.getTime())
-                ? '---'
-                : eventDate.toLocaleString('en-US', { month: 'short' })
+        setDashboardUpcoming(futureEvents.map((item) => {
+          const eventDate = new Date(item.startDate)
+          return {
+            day: String(eventDate.getDate()),
+            month: eventDate.toLocaleString('en-US', { month: 'short' }),
+            title: item.name,
+            time: '09:00 - 16:00',
+          }
+        }))
 
-              return {
-                day,
-                month,
-                title: item.title ?? '',
-                time: item.timeRange ?? '09:00 - 16:00',
-              }
-            })
-          : []
-        setDashboardUpcoming(mappedUpcoming)
-
-        if (Array.isArray(data.weeklyTasks)) {
-          const mappedWeeklyTasks = data.weeklyTasks.map((item) => ({
-            day: item.day ?? '',
-            value: Number(item.value ?? 0),
-          }))
-          setDashboardWeeklyTasks(mappedWeeklyTasks.length > 0 ? mappedWeeklyTasks : emptyWeeklyTasks)
-        }
-      } catch {
-        if (!cancelled) {
-          setDashboardNotice({ text: 'Could not load dashboard overview.', type: 'error' })
-        }
+      } catch (err) {
+        if (!cancelled) setDashboardNotice({ text: 'Error calculating dashboard stats locally.', type: 'error' })
       }
     }
 
-    fetchDashboardOverview()
+    calculateDashboardOverview()
 
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [projectEntities, projectEntitiesLoading, user])
 
   const goToSection = (sectionName) => {
     setActiveNav(sectionName)
@@ -265,39 +288,39 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
 
   const themeVars = isDarkTheme
     ? {
-        '--page-bg': '#0a1020',
-        '--text-main': '#e2e8f0',
-        '--text-muted': '#93a4bf',
-        '--surface-bg': '#121a2f',
-        '--surface-border': '#253250',
-        '--surface-shadow': '0 6px 20px rgba(0,0,0,0.35)',
-        '--input-bg': '#0f172a',
-        '--input-border': '#2b3a5c',
-        '--sidebar-bg': '#ffffff',
-        '--sidebar-border': '#d5dbe8',
-        '--sidebar-muted': '#64748b',
-        '--sidebar-text': '#0b2347',
-        '--sidebar-hover': '#eef2ff',
-        '--sidebar-active-bg': '#0b2347',
-        '--sidebar-active-text': '#ffffff',
-      }
+      '--page-bg': '#0a1020',
+      '--text-main': '#e2e8f0',
+      '--text-muted': '#93a4bf',
+      '--surface-bg': '#121a2f',
+      '--surface-border': '#253250',
+      '--surface-shadow': '0 6px 20px rgba(0,0,0,0.35)',
+      '--input-bg': '#0f172a',
+      '--input-border': '#2b3a5c',
+      '--sidebar-bg': '#ffffff',
+      '--sidebar-border': '#d5dbe8',
+      '--sidebar-muted': '#64748b',
+      '--sidebar-text': '#0b2347',
+      '--sidebar-hover': '#eef2ff',
+      '--sidebar-active-bg': '#0b2347',
+      '--sidebar-active-text': '#ffffff',
+    }
     : {
-        '--page-bg': '#f8fafc',
-        '--text-main': '#0b2347',
-        '--text-muted': '#153865',
-        '--surface-bg': '#ffffff',
-        '--surface-border': '#d5dbe8',
-        '--surface-shadow': '0 1px 2px rgba(15,23,42,0.08)',
-        '--input-bg': '#ffffff',
-        '--input-border': '#d5dbe8',
-        '--sidebar-bg': '#ffffff',
-        '--sidebar-border': '#d5dbe8',
-        '--sidebar-muted': '#64748b',
-        '--sidebar-text': '#0b2347',
-        '--sidebar-hover': '#eef2ff',
-        '--sidebar-active-bg': '#0b2347',
-        '--sidebar-active-text': '#ffffff',
-      }
+      '--page-bg': '#f8fafc',
+      '--text-main': '#0b2347',
+      '--text-muted': '#153865',
+      '--surface-bg': '#ffffff',
+      '--surface-border': '#d5dbe8',
+      '--surface-shadow': '0 1px 2px rgba(15,23,42,0.08)',
+      '--input-bg': '#ffffff',
+      '--input-border': '#d5dbe8',
+      '--sidebar-bg': '#ffffff',
+      '--sidebar-border': '#d5dbe8',
+      '--sidebar-muted': '#64748b',
+      '--sidebar-text': '#0b2347',
+      '--sidebar-hover': '#eef2ff',
+      '--sidebar-active-bg': '#0b2347',
+      '--sidebar-active-text': '#ffffff',
+    }
 
   const openProfile = () => {
     setProfileNotice({ text: '', type: '' })
@@ -427,28 +450,12 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
 
         <main className="h-screen overflow-y-auto px-4 pb-7 pt-4 sm:px-6">
           <header className="flex flex-wrap items-center gap-3 rounded-2xl bg-[var(--surface-bg)] px-5 py-3 shadow-sm" style={{ boxShadow: 'var(--surface-shadow)' }}>
-            {activeNav !== 'Projects & Events' && (
-              <>
-                <input
-                  type="search"
-                  placeholder="Search..."
-                  className="h-10 flex-1 rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 text-sm text-[var(--text-main)] outline-none focus:border-[#f97316]"
-                />
-                <button
-                  type="button"
-                  onClick={() => goToSection('Projects & Events')}
-                  className="rounded-xl border border-[#153865] px-5 py-2.5 text-sm font-semibold text-[#153865]"
-                >
-                  New Project
-                </button>
-                <button
-                  type="button"
-                  onClick={() => goToSection('Bookings')}
-                  className="rounded-xl border border-[#153865] px-5 py-2.5 text-sm font-semibold text-[#153865]"
-                >
-                  Book Resource
-                </button>
-              </>
+            {activeNav === 'Dashboard' && (
+              <input
+                type="search"
+                placeholder="Search..."
+                className="h-10 w-full max-w-md rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 text-sm text-[var(--text-main)] outline-none focus:border-[#f97316]"
+              />
             )}
             <div className="ml-auto flex items-center gap-2">
               <button
@@ -503,9 +510,8 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
 
           {dashboardNotice.text && (
             <p
-              className={`mt-4 rounded-lg px-3 py-2 text-sm font-semibold ${
-                dashboardNotice.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'
-              }`}
+              className={`mt-4 rounded-lg px-3 py-2 text-sm font-semibold ${dashboardNotice.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'
+                }`}
             >
               {dashboardNotice.text}
             </p>
@@ -527,6 +533,22 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
               notice={projectEntitiesNotice}
               onRefresh={fetchProjectEntities}
             />
+          ) : activeNav === 'Bookings' ? (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-lg text-[var(--text-muted)]">Bookings section coming soon...</p>
+            </div>
+          ) : activeNav === 'Calendar' ? (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-lg text-[var(--text-muted)]">Calendar section coming soon...</p>
+            </div>
+          ) : activeNav === 'Forms' ? (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-lg text-[var(--text-muted)]">Forms section coming soon...</p>
+            </div>
+          ) : activeNav === 'Analytics' ? (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-lg text-[var(--text-muted)]">Analytics section coming soon...</p>
+            </div>
           ) : (
             <section className="mt-6 rounded-2xl bg-[var(--surface-bg)] px-5 py-6 shadow-sm" style={{ boxShadow: 'var(--surface-shadow)' }}>
               <div className="flex flex-wrap items-start justify-between gap-4">
