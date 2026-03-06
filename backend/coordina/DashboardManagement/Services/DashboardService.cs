@@ -1,6 +1,6 @@
 using coordina.DashboardManagement.Interface;
 using coordina.DashboardManagement.Models;
-using MySql.Data.MySqlClient;
+using Microsoft.Data.SqlClient;
 using System.Globalization;
 
 namespace coordina.DashboardManagement.Services
@@ -21,7 +21,7 @@ namespace coordina.DashboardManagement.Services
 
             var weekStart = GetCurrentWeekStart(DateTime.UtcNow.Date);
 
-            using var connection = new MySqlConnection(_connectionString);
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
             var response = new DashboardOverviewResponse();
@@ -34,7 +34,7 @@ namespace coordina.DashboardManagement.Services
             response.UpcomingEvents = await GetScalarIntAsync(connection, @"
                 SELECT COUNT(*)
                 FROM ProjectManagementEntities
-                WHERE EntityType = 'Event' AND StartDate >= UTC_DATE();");
+                WHERE EntityType = 'Event' AND StartDate >= CAST(GETUTCDATE() AS DATE);");
 
             // Removed pending tasks query reliant on DashboardWeeklyTasks
             response.PendingTasks = 0;
@@ -55,26 +55,28 @@ namespace coordina.DashboardManagement.Services
 
         private async Task EnsureDashboardTablesAsync()
         {
-            using var connection = new MySqlConnection(_connectionString);
+            using var connection = new SqlConnection(_connectionString);
             await connection.OpenAsync();
 
             const string query = @"
-
-                CREATE TABLE IF NOT EXISTS DashboardActivities (
-                    Id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                IF OBJECT_ID(N'[dbo].[DashboardActivities]', 'U') IS NULL
+                BEGIN
+                CREATE TABLE DashboardActivities (
+                    Id BIGINT IDENTITY(1,1) PRIMARY KEY,
                     Actor VARCHAR(120) NOT NULL,
                     ActionText VARCHAR(255) NOT NULL,
                     TargetText VARCHAR(160) NOT NULL,
                     OccurredAt DATETIME NOT NULL
-                );";
+                );
+                END;";
 
-            using var command = new MySqlCommand(query, connection);
+            using var command = new SqlCommand(query, connection);
             await command.ExecuteNonQueryAsync();
         }
 
-        private static async Task<int> GetScalarIntAsync(MySqlConnection connection, string query, params (string Name, object Value)[] parameters)
+        private static async Task<int> GetScalarIntAsync(SqlConnection connection, string query, params (string Name, object Value)[] parameters)
         {
-            using var command = new MySqlCommand(query, connection);
+            using var command = new SqlCommand(query, connection);
             foreach (var (name, value) in parameters)
             {
                 command.Parameters.AddWithValue(name, value);
@@ -84,9 +86,9 @@ namespace coordina.DashboardManagement.Services
             return result is null || result is DBNull ? 0 : Convert.ToInt32(result, CultureInfo.InvariantCulture);
         }
 
-        private static async Task<decimal> GetScalarDecimalAsync(MySqlConnection connection, string query, params (string Name, object Value)[] parameters)
+        private static async Task<decimal> GetScalarDecimalAsync(SqlConnection connection, string query, params (string Name, object Value)[] parameters)
         {
-            using var command = new MySqlCommand(query, connection);
+            using var command = new SqlCommand(query, connection);
             foreach (var (name, value) in parameters)
             {
                 command.Parameters.AddWithValue(name, value);
@@ -96,16 +98,15 @@ namespace coordina.DashboardManagement.Services
             return result is null || result is DBNull ? 0m : Convert.ToDecimal(result, CultureInfo.InvariantCulture);
         }
 
-        private static async Task<List<ActivityItem>> GetRecentActivityAsync(MySqlConnection connection)
+        private static async Task<List<ActivityItem>> GetRecentActivityAsync(SqlConnection connection)
         {
             var result = new List<ActivityItem>();
             const string query = @"
-                SELECT Actor, ActionText, TargetText, OccurredAt
+                SELECT TOP 5 Actor, ActionText, TargetText, OccurredAt
                 FROM DashboardActivities
-                ORDER BY OccurredAt DESC
-                LIMIT 5;";
+                ORDER BY OccurredAt DESC;";
 
-            using var command = new MySqlCommand(query, connection);
+            using var command = new SqlCommand(query, connection);
             using var reader = await command.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
@@ -121,18 +122,17 @@ namespace coordina.DashboardManagement.Services
             return result;
         }
 
-        private static async Task<List<UpcomingItem>> GetUpcomingAsync(MySqlConnection connection)
+        private static async Task<List<UpcomingItem>> GetUpcomingAsync(SqlConnection connection)
         {
             var result = new List<UpcomingItem>();
             const string query = @"
-                SELECT StartDate, Name
+                SELECT TOP 3 StartDate, Name
                 FROM ProjectManagementEntities
                 WHERE EntityType = 'Event'
-                  AND StartDate >= UTC_DATE()
-                ORDER BY StartDate ASC
-                LIMIT 3;";
+                  AND StartDate >= CAST(GETUTCDATE() AS DATE)
+                ORDER BY StartDate ASC;";
 
-            using var command = new MySqlCommand(query, connection);
+            using var command = new SqlCommand(query, connection);
             using var reader = await command.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
@@ -163,7 +163,7 @@ namespace coordina.DashboardManagement.Services
             return result;
         }
 
-        private static async Task<List<ProjectEventItem>> GetProjectsEventsAsync(MySqlConnection connection)
+        private static async Task<List<ProjectEventItem>> GetProjectsEventsAsync(SqlConnection connection)
         {
             var result = new List<ProjectEventItem>();
             const string query = @"
@@ -171,7 +171,7 @@ namespace coordina.DashboardManagement.Services
                 FROM ProjectManagementEntities
                 ORDER BY CreatedAt DESC;";
 
-            using var command = new MySqlCommand(query, connection);
+            using var command = new SqlCommand(query, connection);
             using var reader = await command.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
