@@ -1,6 +1,6 @@
 using coordina.DashboardManagement.Interface;
 using coordina.DashboardManagement.Models;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 using System.Globalization;
 
 namespace coordina.DashboardManagement.Services
@@ -21,7 +21,7 @@ namespace coordina.DashboardManagement.Services
 
             var weekStart = GetCurrentWeekStart(DateTime.UtcNow.Date);
 
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
 
             var response = new DashboardOverviewResponse();
@@ -34,7 +34,7 @@ namespace coordina.DashboardManagement.Services
             response.UpcomingEvents = await GetScalarIntAsync(connection, @"
                 SELECT COUNT(*)
                 FROM ProjectManagementEntities
-                WHERE EntityType = 'Event' AND StartDate >= CAST(GETUTCDATE() AS DATE);");
+                WHERE EntityType = 'Event' AND StartDate >= CAST(CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AS DATE);");
 
             // Removed pending tasks query reliant on DashboardWeeklyTasks
             response.PendingTasks = 0;
@@ -55,28 +55,25 @@ namespace coordina.DashboardManagement.Services
 
         private async Task EnsureDashboardTablesAsync()
         {
-            using var connection = new SqlConnection(_connectionString);
+            using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
 
             const string query = @"
-                IF OBJECT_ID(N'[dbo].[DashboardActivities]', 'U') IS NULL
-                BEGIN
-                CREATE TABLE DashboardActivities (
-                    Id BIGINT IDENTITY(1,1) PRIMARY KEY,
+                CREATE TABLE IF NOT EXISTS DashboardActivities (
+                    Id BIGSERIAL PRIMARY KEY,
                     Actor VARCHAR(120) NOT NULL,
                     ActionText VARCHAR(255) NOT NULL,
                     TargetText VARCHAR(160) NOT NULL,
-                    OccurredAt DATETIME NOT NULL
-                );
-                END;";
+                    OccurredAt TIMESTAMP NOT NULL
+                );";
 
-            using var command = new SqlCommand(query, connection);
+            using var command = new NpgsqlCommand(query, connection);
             await command.ExecuteNonQueryAsync();
         }
 
-        private static async Task<int> GetScalarIntAsync(SqlConnection connection, string query, params (string Name, object Value)[] parameters)
+        private static async Task<int> GetScalarIntAsync(NpgsqlConnection connection, string query, params (string Name, object Value)[] parameters)
         {
-            using var command = new SqlCommand(query, connection);
+            using var command = new NpgsqlCommand(query, connection);
             foreach (var (name, value) in parameters)
             {
                 command.Parameters.AddWithValue(name, value);
@@ -86,9 +83,9 @@ namespace coordina.DashboardManagement.Services
             return result is null || result is DBNull ? 0 : Convert.ToInt32(result, CultureInfo.InvariantCulture);
         }
 
-        private static async Task<decimal> GetScalarDecimalAsync(SqlConnection connection, string query, params (string Name, object Value)[] parameters)
+        private static async Task<decimal> GetScalarDecimalAsync(NpgsqlConnection connection, string query, params (string Name, object Value)[] parameters)
         {
-            using var command = new SqlCommand(query, connection);
+            using var command = new NpgsqlCommand(query, connection);
             foreach (var (name, value) in parameters)
             {
                 command.Parameters.AddWithValue(name, value);
@@ -98,15 +95,16 @@ namespace coordina.DashboardManagement.Services
             return result is null || result is DBNull ? 0m : Convert.ToDecimal(result, CultureInfo.InvariantCulture);
         }
 
-        private static async Task<List<ActivityItem>> GetRecentActivityAsync(SqlConnection connection)
+        private static async Task<List<ActivityItem>> GetRecentActivityAsync(NpgsqlConnection connection)
         {
             var result = new List<ActivityItem>();
             const string query = @"
-                SELECT TOP 5 Actor, ActionText, TargetText, OccurredAt
+                SELECT Actor, ActionText, TargetText, OccurredAt
                 FROM DashboardActivities
-                ORDER BY OccurredAt DESC;";
+                ORDER BY OccurredAt DESC
+                LIMIT 5;";
 
-            using var command = new SqlCommand(query, connection);
+            using var command = new NpgsqlCommand(query, connection);
             using var reader = await command.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
@@ -122,17 +120,18 @@ namespace coordina.DashboardManagement.Services
             return result;
         }
 
-        private static async Task<List<UpcomingItem>> GetUpcomingAsync(SqlConnection connection)
+        private static async Task<List<UpcomingItem>> GetUpcomingAsync(NpgsqlConnection connection)
         {
             var result = new List<UpcomingItem>();
             const string query = @"
-                SELECT TOP 3 StartDate, Name
+                SELECT StartDate, Name
                 FROM ProjectManagementEntities
                 WHERE EntityType = 'Event'
-                  AND StartDate >= CAST(GETUTCDATE() AS DATE)
-                ORDER BY StartDate ASC;";
+                  AND StartDate >= CAST(CURRENT_TIMESTAMP AT TIME ZONE 'UTC' AS DATE)
+                ORDER BY StartDate ASC
+                LIMIT 3;";
 
-            using var command = new SqlCommand(query, connection);
+            using var command = new NpgsqlCommand(query, connection);
             using var reader = await command.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
@@ -163,7 +162,7 @@ namespace coordina.DashboardManagement.Services
             return result;
         }
 
-        private static async Task<List<ProjectEventItem>> GetProjectsEventsAsync(SqlConnection connection)
+        private static async Task<List<ProjectEventItem>> GetProjectsEventsAsync(NpgsqlConnection connection)
         {
             var result = new List<ProjectEventItem>();
             const string query = @"
@@ -171,7 +170,7 @@ namespace coordina.DashboardManagement.Services
                 FROM ProjectManagementEntities
                 ORDER BY CreatedAt DESC;";
 
-            using var command = new SqlCommand(query, connection);
+            using var command = new NpgsqlCommand(query, connection);
             using var reader = await command.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {

@@ -1,7 +1,7 @@
 using coordina.TestManagement.Entities;
 using coordina.TestManagement.Interface;
-// Make sure you have installed the 'Microsoft.Data.SqlClient' NuGet package.
-using Microsoft.Data.SqlClient;
+// Make sure you have installed the 'Npgsql' NuGet package.
+using Npgsql;
 using System.Data;
 
 namespace coordina.TestManagement.Services
@@ -21,15 +21,15 @@ namespace coordina.TestManagement.Services
         {
             var tests = new List<TestEntity>();
 
-            // Use ADO.NET to connect to the SQL Server database.
-            using (var connection = new SqlConnection(_connectionString))
+            // Use ADO.NET to connect to the PostgreSQL database.
+            using (var connection = new NpgsqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
 
                 // Define your SQL query. Make sure a 'Tests' table exists in your DB.
                 string query = "SELECT Id, Name, Description FROM Tests";
 
-                using (var command = new SqlCommand(query, connection))
+                using (var command = new NpgsqlCommand(query, connection))
                 using (var reader = await command.ExecuteReaderAsync())
                 {
                     // Read the data row by row.
