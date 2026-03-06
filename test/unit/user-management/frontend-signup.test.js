@@ -40,7 +40,7 @@ describe('Frontend-Style Signup (camelCase fields)', () => {
         });
 
         expect(response.status).toBe(201);
-    }, 10000);
+    });
 
     test('Invalid case: Username too short (frontend constraint)', async () => {
         const form = createSignupForm({
