@@ -31,7 +31,7 @@ namespace coordina.ProjectManagement.Services
 
             var items = new List<ProjectEntityItemResponse>();
             var queryBuilder = new StringBuilder(@"
-                SELECT Id, Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence
+                SELECT Id, Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence, CreatedByUserId
                 FROM ProjectManagementEntities
                 WHERE 1=1");
 
@@ -63,7 +63,46 @@ namespace coordina.ProjectManagement.Services
             return items;
         }
 
-        public async Task<ProjectEntityItemResponse> CreateEntityAsync(CreateProjectEntityRequest request)
+        public async Task<IReadOnlyList<ProjectEntityItemResponse>> GetEntitiesByUserIdAsync(long userId, string? search, string? type)
+        {
+            await EnsureTableAsync();
+
+            var items = new List<ProjectEntityItemResponse>();
+            var queryBuilder = new StringBuilder(@"
+                SELECT Id, Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence, CreatedByUserId
+                FROM ProjectManagementEntities
+                WHERE CreatedByUserId = @UserId");
+
+            using var connection = new NpgsqlConnection(_connectionString);
+            await connection.OpenAsync();
+            using var command = new NpgsqlCommand { Connection = connection };
+            command.Parameters.AddWithValue("@UserId", userId);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                queryBuilder.Append(" AND (Name LIKE @Search OR Description LIKE @Search)");
+                command.Parameters.AddWithValue("@Search", $"%{search.Trim()}%");
+            }
+
+            if (!string.IsNullOrWhiteSpace(type) && !string.Equals(type, "All Types", StringComparison.OrdinalIgnoreCase))
+            {
+                queryBuilder.Append(" AND EntityType = @EntityType");
+                command.Parameters.AddWithValue("@EntityType", NormalizeType(type));
+            }
+
+            queryBuilder.Append(" ORDER BY CreatedAt DESC;");
+            command.CommandText = queryBuilder.ToString();
+
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                items.Add(MapEntity(reader));
+            }
+
+            return items;
+        }
+
+        public async Task<ProjectEntityItemResponse> CreateEntityAsync(long userId, CreateProjectEntityRequest request)
         {
             await EnsureTableAsync();
 
@@ -85,9 +124,9 @@ namespace coordina.ProjectManagement.Services
 
             const string insertQuery = @"
                 INSERT INTO ProjectManagementEntities
-                (Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence, CreatedAt)
+                (Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence, CreatedByUserId, CreatedAt)
                 VALUES
-                (@Name, @Description, @EntityType, @Status, @StartDate, @EndDate, @Goals, @MembersCount, @RaisedAmount, @GoalAmount, @PadletEvidence, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                (@Name, @Description, @EntityType, @Status, @StartDate, @EndDate, @Goals, @MembersCount, @RaisedAmount, @GoalAmount, @PadletEvidence, @CreatedByUserId, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
                 RETURNING Id;";
 
             using var insertCommand = new NpgsqlCommand(insertQuery, connection);
@@ -102,11 +141,12 @@ namespace coordina.ProjectManagement.Services
             insertCommand.Parameters.AddWithValue("@RaisedAmount", raisedAmount.HasValue ? raisedAmount.Value : DBNull.Value);
             insertCommand.Parameters.AddWithValue("@GoalAmount", goalAmount.HasValue ? goalAmount.Value : DBNull.Value);
             insertCommand.Parameters.AddWithValue("@PadletEvidence", string.IsNullOrWhiteSpace(padletEvidence) ? DBNull.Value : padletEvidence);
+            insertCommand.Parameters.AddWithValue("@CreatedByUserId", userId);
 
             var insertedId = Convert.ToInt64(await insertCommand.ExecuteScalarAsync(), CultureInfo.InvariantCulture);
 
             const string fetchQuery = @"
-                SELECT Id, Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence
+                SELECT Id, Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence, CreatedByUserId
                 FROM ProjectManagementEntities
                 WHERE Id = @Id;";
 
@@ -186,7 +226,7 @@ namespace coordina.ProjectManagement.Services
             }
 
             const string fetchQuery = @"
-                SELECT Id, Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence
+                SELECT Id, Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence, CreatedByUserId
                 FROM ProjectManagementEntities
                 WHERE Id = @Id;";
 
@@ -275,7 +315,9 @@ namespace coordina.ProjectManagement.Services
             try
             {
                 const string alterQuery = @"
-                    ALTER TABLE ProjectManagementEntities ADD COLUMN IF NOT EXISTS PadletEvidence VARCHAR(500);";
+                    ALTER TABLE ProjectManagementEntities ADD COLUMN IF NOT EXISTS PadletEvidence VARCHAR(500);
+                    ALTER TABLE ProjectManagementEntities ADD COLUMN IF NOT EXISTS CreatedByUserId BIGINT NULL;
+                ";
                 using var alterCommand = new NpgsqlCommand(alterQuery, connection);
                 await alterCommand.ExecuteNonQueryAsync();
             }
@@ -283,6 +325,15 @@ namespace coordina.ProjectManagement.Services
             {
                 // Ignore if error, it might mean the syntax isn't perfectly supported on this MySQL version or column exists via other means
             }
+        }
+
+        private static DateTime ParseDate(object value)
+        {
+            if (value is DateOnly dateOnly)
+            {
+                return dateOnly.ToDateTime(TimeOnly.MinValue);
+            }
+            return Convert.ToDateTime(value, CultureInfo.InvariantCulture).Date;
         }
 
         private static ProjectEntityItemResponse MapEntity(DbDataReader reader)
@@ -294,15 +345,14 @@ namespace coordina.ProjectManagement.Services
                 Description = reader["Description"].ToString() ?? string.Empty,
                 Type = reader["EntityType"].ToString() ?? string.Empty,
                 Status = reader["Status"].ToString() ?? string.Empty,
-                StartDate = Convert.ToDateTime(reader["StartDate"], CultureInfo.InvariantCulture).Date,
-                EndDate = reader["EndDate"] is DBNull
-                    ? null
-                    : Convert.ToDateTime(reader["EndDate"], CultureInfo.InvariantCulture).Date,
+                StartDate = ParseDate(reader["StartDate"]),
+                EndDate = reader["EndDate"] is DBNull ? null : ParseDate(reader["EndDate"]),
                 Goals = reader["Goals"] is DBNull ? null : reader["Goals"].ToString(),
                 MembersCount = Convert.ToInt32(reader["MembersCount"], CultureInfo.InvariantCulture),
                 RaisedAmount = reader["RaisedAmount"] is DBNull ? null : Convert.ToDecimal(reader["RaisedAmount"], CultureInfo.InvariantCulture),
                 GoalAmount = reader["GoalAmount"] is DBNull ? null : Convert.ToDecimal(reader["GoalAmount"], CultureInfo.InvariantCulture),
-                PadletEvidence = reader["PadletEvidence"] is DBNull ? null : reader["PadletEvidence"].ToString()
+                PadletEvidence = reader["PadletEvidence"] is DBNull ? null : reader["PadletEvidence"].ToString(),
+                CreatedByUserId = reader["CreatedByUserId"] is DBNull ? null : Convert.ToInt64(reader["CreatedByUserId"], CultureInfo.InvariantCulture)
             };
         }
 
