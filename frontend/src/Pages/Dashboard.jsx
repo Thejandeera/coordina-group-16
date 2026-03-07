@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useMatch } from 'react-router-dom'
 import { authFetch, readJsonSafe, setSessionUserData, getSessionUserData } from '../lib/authClient'
 import Sidebar from '../components/Sidebar'
 import UpdateProfile from './UpdateProfile'
 import ProjectsEvents from './ProjectsEvents'
+import ProjectDetails from './ProjectDetails'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 
@@ -76,6 +77,7 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
 
   const navigate = useNavigate()
   const location = useLocation()
+  const matchProjectDetails = useMatch(`${projectsEventsPath}/:id`)
   const [activeNav, setActiveNav] = useState('Dashboard')
   const [isDarkTheme, setIsDarkTheme] = useState(() => localStorage.getItem('dashboardTheme') === 'dark')
   const [savingProfile, setSavingProfile] = useState(false)
@@ -122,7 +124,7 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
   useEffect(() => {
     const normalizedPath = location.pathname.replace(/\/+$/, '') || dashboardPath
     let nextActive = 'Dashboard'
-    if (normalizedPath === projectsEventsPath) {
+    if (normalizedPath === projectsEventsPath || normalizedPath.startsWith(projectsEventsPath + '/')) {
       nextActive = 'Projects & Events'
     } else if (normalizedPath === bookingsPath) {
       nextActive = 'Bookings'
@@ -475,12 +477,20 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
               profileNotice={profileNotice}
             />
           ) : activeNav === 'Projects & Events' ? (
-            <ProjectsEvents
-              items={projectEntities}
-              loading={projectEntitiesLoading}
-              notice={projectEntitiesNotice}
-              onRefresh={fetchProjectEntities}
-            />
+            matchProjectDetails ? (
+              <ProjectDetails
+                projectId={matchProjectDetails.params.id}
+                items={projectEntities}
+                loading={projectEntitiesLoading}
+              />
+            ) : (
+              <ProjectsEvents
+                items={projectEntities}
+                loading={projectEntitiesLoading}
+                notice={projectEntitiesNotice}
+                onRefresh={fetchProjectEntities}
+              />
+            )
           ) : activeNav === 'Bookings' ? (
             <div className="flex h-full items-center justify-center">
               <p className="text-lg text-[var(--text-muted)]">Bookings section coming soon...</p>

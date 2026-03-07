@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { authFetch, readJsonSafe, getSessionUserData } from '../lib/authClient'
 
 const typeOptions = ['All Types', 'Project', 'Event', 'Donation Drive']
@@ -37,6 +38,7 @@ const formatDate = (dateText) => {
 const formatCurrency = (value) => `LKR ${Number(value ?? 0).toLocaleString()}`
 
 function ProjectsEvents({ items, loading, notice, onRefresh }) {
+  const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('All Types')
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -250,13 +252,20 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
                 : 0
 
               return (
-                <article key={item.id} className="rounded-2xl border border-[var(--surface-border)] px-5 py-5">
+                <article
+                  key={item.id}
+                  className="rounded-2xl border border-[var(--surface-border)] px-5 py-5 cursor-pointer hover:border-orange-500 transition-colors"
+                  onClick={() => navigate(`/projects-events/${item.id}`)}
+                >
                   <div className="flex items-start justify-between gap-3">
                     <h3 className="text-[34px] font-bold leading-tight text-[var(--text-main)]">{item.name}</h3>
                     <div className="relative">
                       <button
                         type="button"
-                        onClick={() => setActiveMenuId(activeMenuId === item.id ? null : item.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setActiveMenuId(activeMenuId === item.id ? null : item.id)
+                        }}
                         className="text-xl font-bold leading-none text-[var(--text-muted)] p-2 hover:bg-slate-100 rounded-lg"
                       >
                         ...
@@ -266,14 +275,20 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
                         <div className="absolute right-0 top-full mt-1 w-32 rounded-xl border border-[var(--surface-border)] bg-white py-2 shadow-lg z-10">
                           <button
                             type="button"
-                            onClick={() => openEditModal(item)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openEditModal(item)
+                            }}
                             className="w-full px-4 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-slate-50"
                           >
                             Edit
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDelete(item.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(item.id)
+                            }}
                             className="w-full px-4 py-2 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50"
                           >
                             Delete
@@ -313,7 +328,7 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
 
                   {item.padletEvidence && (
                     <p className="mt-3 text-sm text-blue-600 underline">
-                      <a href={item.padletEvidence} target="_blank" rel="noopener noreferrer">View Padlet Evidence</a>
+                      <a href={item.padletEvidence} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>View Padlet Evidence</a>
                     </p>
                   )}
 
