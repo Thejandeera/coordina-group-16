@@ -2,6 +2,8 @@ using DotNetEnv;
 using coordina.Configurations;
 using coordina.ProjectManagement.Interface;
 using coordina.ProjectManagement.Services;
+using coordina.TaskManagement.Interface;
+using coordina.TaskManagement.Services;
 using coordina.TestManagement.Services;
 using coordina.TestManagement.Interface;
 using coordina.UserManagement.Interface;
@@ -43,6 +45,7 @@ builder.Services.Configure<CloudinarySettings>(builder.Configuration.GetSection(
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProjectManagementService, ProjectManagementService>();
+builder.Services.AddScoped<ITaskManagementService, TaskManagementService>();
 
 var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>() ?? new JwtSettings();
 var accessKey = Encoding.UTF8.GetBytes(jwtSettings.AccessTokenSecret);

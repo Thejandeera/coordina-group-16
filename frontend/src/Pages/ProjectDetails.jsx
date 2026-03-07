@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import Tasks from '../components/Tasks'
 
 const badgeStyles = {
     Project: 'bg-blue-100 text-blue-700',
@@ -12,6 +13,7 @@ const badgeStyles = {
 
 function ProjectDetails({ projectId, items, loading }) {
     const navigate = useNavigate()
+    const [activeTab, setActiveTab] = useState('Overview')
     const project = useMemo(() => items.find((item) => String(item.id) === String(projectId)), [items, projectId])
 
     if (loading) {
@@ -62,12 +64,13 @@ function ProjectDetails({ projectId, items, loading }) {
             </div>
 
             <div className="mt-8 flex gap-1 rounded-xl bg-slate-100/70 p-1.5 w-max border border-slate-200/50">
-                {['Overview', 'Tasks (3)', 'Calendar', 'Chat', 'Forms (0)', 'Members (3)'].map((tab, i) => (
+                {['Overview', 'Tasks', 'Calendar', 'Chat', 'Forms', 'Members'].map((tab) => (
                     <button
                         key={tab}
-                        className={`px-4 py-2 text-[14px] font-bold transition-all rounded-lg ${i === 0
-                                ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-900/5'
-                                : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                        onClick={() => setActiveTab(tab)}
+                        className={`px-4 py-2 text-[14px] font-bold transition-all rounded-lg ${activeTab === tab
+                            ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-900/5'
+                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
                             }`}
                     >
                         {tab}
@@ -75,46 +78,58 @@ function ProjectDetails({ projectId, items, loading }) {
                 ))}
             </div>
 
-            <div className="mt-6 flex flex-col gap-4">
-                <div className="rounded-[14px] border border-slate-200 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
-                    <p className="text-slate-500 text-[15px] font-medium leading-relaxed">{project.description}</p>
-                </div>
+            {activeTab === 'Overview' && (
+                <div className="mt-6 flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="rounded-[14px] border border-slate-200 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)]">
+                        <p className="text-slate-500 text-[15px] font-medium leading-relaxed">{project.description}</p>
+                    </div>
 
-                <div className="grid gap-4 md:grid-cols-[1.5fr_1.5fr_2fr] lg:grid-cols-[1fr_1fr_1.5fr]">
-                    <div className="rounded-[14px] border border-slate-200 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] flex flex-col justify-center">
-                        <p className="text-[13px] font-medium text-slate-400 mb-2">Start Date</p>
-                        <p className="text-[19px] font-bold text-slate-800 leading-none">
-                            {project.startDate ? new Date(project.startDate).toISOString().slice(0, 10) : '-'}
-                        </p>
-                    </div>
-                    <div className="rounded-[14px] border border-slate-200 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] flex flex-col justify-center">
-                        <p className="text-[13px] font-medium text-slate-400 mb-2">End Date</p>
-                        <p className="text-[19px] font-bold text-slate-800 leading-none">
-                            {project.endDate ? new Date(project.endDate).toISOString().slice(0, 10) : '-'}
-                        </p>
-                    </div>
-                    <div className="rounded-[14px] border border-slate-200 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] flex flex-col justify-center">
-                        <p className="text-[13px] font-medium text-slate-400 mb-2">Goals</p>
-                        <p className="text-[17px] font-bold text-slate-800 leading-snug">
-                            {project.goals || 'No specific goals set.'}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mt-2">
-                    {[
-                        { value: '3', label: 'Tasks' },
-                        { value: '0', label: 'Completed' },
-                        { value: '0', label: 'Forms' },
-                        { value: String(project.membersCount ?? '3'), label: 'Members' },
-                    ].map((stat, idx) => (
-                        <div key={idx} className="rounded-[14px] border border-slate-200 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] text-center flex flex-col justify-center gap-2">
-                            <p className="text-[34px] font-black text-slate-900 leading-none">{stat.value}</p>
-                            <p className="text-[14px] font-medium text-slate-400">{stat.label}</p>
+                    <div className="grid gap-4 md:grid-cols-[1.5fr_1.5fr_2fr] lg:grid-cols-[1fr_1fr_1.5fr]">
+                        <div className="rounded-[14px] border border-slate-200 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] flex flex-col justify-center">
+                            <p className="text-[13px] font-medium text-slate-400 mb-2">Start Date</p>
+                            <p className="text-[19px] font-bold text-slate-800 leading-none">
+                                {project.startDate ? new Date(project.startDate).toISOString().slice(0, 10) : '-'}
+                            </p>
                         </div>
-                    ))}
+                        <div className="rounded-[14px] border border-slate-200 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] flex flex-col justify-center">
+                            <p className="text-[13px] font-medium text-slate-400 mb-2">End Date</p>
+                            <p className="text-[19px] font-bold text-slate-800 leading-none">
+                                {project.endDate ? new Date(project.endDate).toISOString().slice(0, 10) : '-'}
+                            </p>
+                        </div>
+                        <div className="rounded-[14px] border border-slate-200 bg-white p-5 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] flex flex-col justify-center">
+                            <p className="text-[13px] font-medium text-slate-400 mb-2">Goals</p>
+                            <p className="text-[17px] font-bold text-slate-800 leading-snug">
+                                {project.goals || 'No specific goals set.'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid gap-4 grid-cols-2 lg:grid-cols-4 mt-2">
+                        {[
+                            { value: '3', label: 'Tasks' },
+                            { value: '0', label: 'Completed' },
+                            { value: '0', label: 'Forms' },
+                            { value: String(project.membersCount ?? '3'), label: 'Members' },
+                        ].map((stat, idx) => (
+                            <div key={idx} className="rounded-[14px] border border-slate-200 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] text-center flex flex-col justify-center gap-2">
+                                <p className="text-[34px] font-black text-slate-900 leading-none">{stat.value}</p>
+                                <p className="text-[14px] font-medium text-slate-400">{stat.label}</p>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            </div>
+            )}
+
+            {activeTab === 'Tasks' && (
+                <Tasks projectId={project.id} />
+            )}
+
+            {activeTab !== 'Overview' && activeTab !== 'Tasks' && (
+                <div className="mt-8 p-12 text-center border-2 border-dashed border-slate-200 rounded-2xl animate-in fade-in duration-300">
+                    <p className="text-lg font-bold text-slate-400">{activeTab} section coming soon.</p>
+                </div>
+            )}
         </section>
     )
 }
