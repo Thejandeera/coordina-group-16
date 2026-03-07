@@ -197,6 +197,11 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
 
       setProjectEntities(data)
       setProjectEntitiesNotice({ text: '', type: '' })
+      try {
+        sessionStorage.setItem('projectData', JSON.stringify(data))
+      } catch (err) {
+        console.warn('Could not save project data to session storage', err)
+      }
     } catch {
       setProjectEntitiesNotice({ text: 'Could not load projects and events.', type: 'error' })
     } finally {

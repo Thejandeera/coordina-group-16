@@ -91,12 +91,55 @@ namespace coordina.TaskManagement.Controllers
 
             try
             {
-                var updated = await _taskService.UpdateTaskAsync(id, request);
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userIdString) || !long.TryParse(userIdString, out var userId))
+                {
+                    return Unauthorized(new { message = "User is not logged in." });
+                }
+
+                var updated = await _taskService.UpdateTaskAsync(userId, id, request);
                 return Ok(updated);
             }
             catch (ArgumentException ex)
             {
                 return NotFound(new { message = ex.Message });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPatch("tasks/{id}/status")]
+        public async Task<IActionResult> PatchTaskStatus(long id, [FromBody] string status)
+        {
+            if (string.IsNullOrWhiteSpace(status))
+            {
+                return BadRequest(new { message = "Status cannot be empty." });
+            }
+
+            try
+            {
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userIdString) || !long.TryParse(userIdString, out var userId))
+                {
+                    return Unauthorized(new { message = "User is not logged in." });
+                }
+
+                var updated = await _taskService.PatchTaskStatusAsync(userId, id, status);
+                return Ok(updated);
+            }
+            catch (ArgumentException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid();
             }
             catch (Exception ex)
             {
@@ -109,12 +152,22 @@ namespace coordina.TaskManagement.Controllers
         {
             try
             {
-                await _taskService.DeleteTaskAsync(id);
+                var userIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(userIdString) || !long.TryParse(userIdString, out var userId))
+                {
+                    return Unauthorized(new { message = "User is not logged in." });
+                }
+
+                await _taskService.DeleteTaskAsync(userId, id);
                 return NoContent();
             }
             catch (ArgumentException ex)
             {
                 return NotFound(new { message = ex.Message });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid();
             }
             catch (Exception ex)
             {

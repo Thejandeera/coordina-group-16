@@ -254,11 +254,11 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
               return (
                 <article
                   key={item.id}
-                  className="rounded-2xl border border-[var(--surface-border)] px-5 py-5 cursor-pointer hover:border-orange-500 transition-colors"
+                  className="rounded-2xl border border-[var(--surface-border)] px-5 py-5 cursor-pointer hover:border-orange-500 transition-colors min-w-0"
                   onClick={() => navigate(`/projects-events/${item.id}`)}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className="text-[34px] font-bold leading-tight text-[var(--text-main)]">{item.name}</h3>
+                  <div className="flex items-start justify-between gap-3 min-w-0">
+                    <h3 className="text-xl sm:text-2xl font-bold leading-tight text-[var(--text-main)] truncate min-w-0">{item.name}</h3>
                     <div className="relative">
                       <button
                         type="button"
@@ -298,7 +298,7 @@ function ProjectsEvents({ items, loading, notice, onRefresh }) {
                     </div>
                   </div>
 
-                  <p className="mt-2 text-lg leading-relaxed text-[var(--text-muted)]">{item.description}</p>
+                  <p className="mt-2 text-sm sm:text-base leading-relaxed text-[var(--text-muted)] line-clamp-2">{item.description}</p>
 
                   <div className="mt-4 flex flex-wrap gap-2 text-base font-semibold">
                     <span className={`rounded-full px-3 py-1 ${badgeStyles[item.type] ?? 'bg-slate-100 text-slate-700'}`}>

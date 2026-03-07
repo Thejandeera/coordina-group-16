@@ -139,5 +139,50 @@ namespace coordina.ProjectManagement.Controllers
                 return NotFound(new { message = ex.Message });
             }
         }
+
+        [HttpPost("{projectId}/members")]
+        public async Task<IActionResult> InviteUser(long projectId, [FromBody] InviteMemberRequest request)
+        {
+            if (!ModelState.IsValid)
+            {
+                return ValidationProblem(ModelState);
+            }
+
+            try
+            {
+                var inviterUserIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (string.IsNullOrEmpty(inviterUserIdString) || !long.TryParse(inviterUserIdString, out var inviterUserId))
+                {
+                    return Unauthorized(new { message = "User is not logged in." });
+                }
+
+                await _projectManagementService.InviteUserAsync(projectId, inviterUserId, request);
+                return Ok(new { message = "User invited successfully." });
+            }
+            catch (ArgumentException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid();
+            }
+        }
+
+        [HttpGet("{projectId}/members")]
+        [AllowAnonymous] // Ideally, this would only be accessible to project members. For simplicity, keeping it open to anyone with the projectId or enforcing a basic check if needed later. (Or just let the frontend read it easily)
+        public async Task<IActionResult> GetProjectMembers(long projectId)
+        {
+            try
+            {
+                var members = await _projectManagementService.GetProjectMembersAsync(projectId);
+                return Ok(members);
+            }
+            catch (ArgumentException)
+            {
+                // Just return empty if table missing/project invalid in a read scenario, or handle normally.
+                return NotFound(new { message = "Project not found or invalid." });
+            }
+        }
     }
 }

@@ -249,6 +249,44 @@ namespace coordina.UserManagement.Services
             return imageUrl;
         }
 
+        public async Task<IReadOnlyList<UserSearchResponse>> SearchUsersAsync(string query)
+        {
+            await EnsureUsersTableAsync();
+
+            var users = new List<UserSearchResponse>();
+            if (string.IsNullOrWhiteSpace(query))
+            {
+                return users;
+            }
+
+            using var connection = new NpgsqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            const string sql = @"
+                SELECT Id, Username, Email, ProfileImageUrl
+                FROM Users
+                WHERE Username ILIKE @Query OR Email ILIKE @Query
+                ORDER BY Username ASC
+                LIMIT 10;";
+
+            using var command = new NpgsqlCommand(sql, connection);
+            command.Parameters.AddWithValue("@Query", $"%{query.Trim()}%");
+
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                users.Add(new UserSearchResponse
+                {
+                    Id = Convert.ToInt64(reader["Id"]),
+                    Username = reader["Username"].ToString() ?? string.Empty,
+                    Email = reader["Email"].ToString() ?? string.Empty,
+                    ProfileImageUrl = reader["ProfileImageUrl"] is DBNull ? null : reader["ProfileImageUrl"].ToString()
+                });
+            }
+
+            return users;
+        }
+
         private async Task EnsureUsersTableAsync()
         {
             using var connection = new NpgsqlConnection(_connectionString);
