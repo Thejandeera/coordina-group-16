@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { toast } from 'react-toastify'
 import { authFetch, readJsonSafe } from '../lib/authClient'
 
 const getPriorityColor = (priority) => {
@@ -220,11 +221,12 @@ function Tasks({ projectId, userRole }) {
         try {
             const response = await authFetch(`/api/tasks/${id}`, { method: 'DELETE' })
             if (!response.ok) throw new Error('Could not delete task')
+            toast.success('Task deleted successfully')
             fetchTasks()
             setIsFormModalOpen(false)
             setViewingTask(null)
         } catch (err) {
-            alert(err.message)
+            toast.error(err.message)
         }
     }
 
@@ -268,8 +270,9 @@ function Tasks({ projectId, userRole }) {
 
             await fetchTasks()
             setIsFormModalOpen(false)
+            toast.success(editingTask?.isNew ? 'Task created successfully' : 'Task updated successfully')
         } catch (err) {
-            alert(err.message)
+            toast.error(err.message)
         } finally {
             setSubmitting(false)
         }
@@ -348,7 +351,7 @@ function Tasks({ projectId, userRole }) {
                 });
             }
             setTasks(prev => recursivelyRevertTask(prev))
-            alert('Failed to update task status: ' + err.message)
+            toast.error('Failed to update task status: ' + err.message)
         }
     }
 
