@@ -22,6 +22,7 @@ const protectedPaths = [
   PATHS.root,
   PATHS.dashboard,
   PATHS.projectsEvents,
+  PATHS.projectsEvents + '/:id',
   PATHS.bookings,
   PATHS.calendar,
   PATHS.forms,

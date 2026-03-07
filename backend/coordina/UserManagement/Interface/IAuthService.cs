@@ -10,5 +10,6 @@ namespace coordina.UserManagement.Interface
         Task<UserProfileResponse> GetCurrentUserAsync(long userId);
         Task<UserProfileResponse> UpdateProfileAsync(long userId, UpdateProfileRequest request);
         Task<string> UpdateProfileImageAsync(long userId, IFormFile profileImage);
+        Task<IReadOnlyList<UserSearchResponse>> SearchUsersAsync(string query);
     }
 }

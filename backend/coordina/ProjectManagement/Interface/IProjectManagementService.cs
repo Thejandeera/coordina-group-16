@@ -9,5 +9,7 @@ namespace coordina.ProjectManagement.Interface
         Task<ProjectEntityItemResponse> CreateEntityAsync(long userId, CreateProjectEntityRequest request);
         Task<ProjectEntityItemResponse> UpdateEntityAsync(long id, UpdateProjectEntityRequest request);
         Task DeleteEntityAsync(long id);
+        Task InviteUserAsync(long projectId, long inviterUserId, InviteMemberRequest request);
+        Task<IReadOnlyList<ProjectMemberResponse>> GetProjectMembersAsync(long projectId);
     }
 }

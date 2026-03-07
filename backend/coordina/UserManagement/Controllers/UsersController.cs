@@ -86,5 +86,17 @@ namespace coordina.UserManagement.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
+
+        [HttpGet("search")]
+        public async Task<IActionResult> SearchUsers([FromQuery] string q)
+        {
+            if (string.IsNullOrWhiteSpace(q))
+            {
+                return BadRequest(new { message = "Search query is required." });
+            }
+
+            var users = await _authService.SearchUsersAsync(q);
+            return Ok(users);
+        }
     }
 }
