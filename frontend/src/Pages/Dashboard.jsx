@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { authFetch, readJsonSafe, setSessionUserData, getSessionUserData } from '../lib/authClient'
-import Sidebar from './Sidebar'
+import Sidebar from '../components/Sidebar'
 import UpdateProfile from './UpdateProfile'
 import ProjectsEvents from './ProjectsEvents'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 
 const navItems = ['Dashboard', 'Projects & Events', 'Bookings', 'Calendar', 'Forms', 'Analytics', 'Settings']
 const defaultPaths = {
@@ -96,6 +98,7 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
     username: user?.username ?? '',
     email: user?.email ?? '',
     phoneNumber: user?.phoneNumber ?? '',
+    profileImageUrl: user?.profileImageUrl ?? null,
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
@@ -141,8 +144,9 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
       username: user?.username ?? '',
       email: user?.email ?? '',
       phoneNumber: user?.phoneNumber ?? '',
+      profileImageUrl: user?.profileImageUrl ?? null,
     }))
-  }, [user?.username, user?.email, user?.phoneNumber])
+  }, [user?.username, user?.email, user?.phoneNumber, user?.profileImageUrl])
 
   useEffect(() => {
     let cancelled = false
@@ -296,12 +300,12 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
       '--surface-shadow': '0 6px 20px rgba(0,0,0,0.35)',
       '--input-bg': '#0f172a',
       '--input-border': '#2b3a5c',
-      '--sidebar-bg': '#ffffff',
-      '--sidebar-border': '#d5dbe8',
-      '--sidebar-muted': '#64748b',
-      '--sidebar-text': '#0b2347',
-      '--sidebar-hover': '#eef2ff',
-      '--sidebar-active-bg': '#0b2347',
+      '--sidebar-bg': 'rgba(18, 26, 47, 0.65)',
+      '--sidebar-border': 'rgba(255, 255, 255, 0.1)',
+      '--sidebar-muted': '#93a4bf',
+      '--sidebar-text': '#e2e8f0',
+      '--sidebar-hover': 'rgba(255, 255, 255, 0.1)',
+      '--sidebar-active-bg': '#f97316',
       '--sidebar-active-text': '#ffffff',
     }
     : {
@@ -313,11 +317,11 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
       '--surface-shadow': '0 1px 2px rgba(15,23,42,0.08)',
       '--input-bg': '#ffffff',
       '--input-border': '#d5dbe8',
-      '--sidebar-bg': '#ffffff',
-      '--sidebar-border': '#d5dbe8',
+      '--sidebar-bg': 'rgba(255, 255, 255, 0.65)',
+      '--sidebar-border': 'rgba(255, 255, 255, 0.3)',
       '--sidebar-muted': '#64748b',
       '--sidebar-text': '#0b2347',
-      '--sidebar-hover': '#eef2ff',
+      '--sidebar-hover': 'rgba(255, 255, 255, 0.5)',
       '--sidebar-active-bg': '#0b2347',
       '--sidebar-active-text': '#ffffff',
     }
@@ -446,67 +450,11 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
           activeNav={activeNav}
           goToSection={goToSection}
           openProfile={openProfile}
+          onLogout={onLogout}
         />
 
         <main className="h-screen overflow-y-auto px-4 pb-7 pt-4 sm:px-6">
-          <header className="flex flex-wrap items-center gap-3 rounded-2xl bg-[var(--surface-bg)] px-5 py-3 shadow-sm" style={{ boxShadow: 'var(--surface-shadow)' }}>
-            {activeNav === 'Dashboard' && (
-              <input
-                type="search"
-                placeholder="Search..."
-                className="h-10 w-full max-w-md rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-4 text-sm text-[var(--text-main)] outline-none focus:border-[#f97316]"
-              />
-            )}
-            <div className="ml-auto flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setIsDarkTheme((prev) => !prev)}
-                aria-label="Toggle theme"
-                title="Theme"
-                className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--surface-border)] text-[var(--text-muted)] transition hover:bg-[#fff7ed]"
-              >
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                  {isDarkTheme ? (
-                    <>
-                      <circle cx="12" cy="12" r="4" />
-                      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-                    </>
-                  ) : (
-                    <path d="M12 3a7.5 7.5 0 1 0 9 9A9 9 0 1 1 12 3Z" />
-                  )}
-                </svg>
-              </button>
 
-              <button
-                type="button"
-                aria-label="Notifications"
-                title="Notifications"
-                className="relative grid h-10 w-10 place-items-center rounded-xl border border-[var(--surface-border)] text-[var(--text-muted)] transition hover:bg-[#fff7ed]"
-              >
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.4V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5" />
-                  <path d="M9 17a3 3 0 0 0 6 0" />
-                </svg>
-                <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-[#f97316] text-[11px] font-bold text-white">
-                  3
-                </span>
-              </button>
-
-              <button
-                type="button"
-                onClick={onLogout}
-                aria-label="Logout"
-                title="Logout"
-                className="grid h-10 w-10 place-items-center rounded-xl border border-[var(--surface-border)] text-[var(--text-muted)] transition hover:bg-[#fff7ed]"
-              >
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <path d="m16 17 5-5-5-5" />
-                  <path d="M21 12H9" />
-                </svg>
-              </button>
-            </div>
-          </header>
 
           {dashboardNotice.text && (
             <p
@@ -642,6 +590,7 @@ function Dashboard({ user, onLogout, onUserRefresh, paths }) {
           )}
         </main>
       </div>
+      <ToastContainer position="bottom-right" autoClose={3000} hideProgressBar theme={isDarkTheme ? 'dark' : 'light'} />
     </div>
   )
 }

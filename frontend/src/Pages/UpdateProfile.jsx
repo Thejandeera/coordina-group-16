@@ -1,36 +1,54 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { toast } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
 
 function UpdateProfile({ form, setForm, setProfileImageFile, handleProfileSave, savingProfile, profileNotice }) {
-  const [imageError, setImageError] = useState('')
+  const [imagePreview, setImagePreview] = useState(null)
 
   const handleImageChange = (event) => {
     const file = event.target.files?.[0] ?? null
     if (!file) {
-      setImageError('')
       setProfileImageFile(null)
+      setImagePreview(null)
       return
     }
 
     const isImage = file.type.startsWith('image/')
     if (!isImage) {
-      setImageError('Please select a valid image file.')
+      toast.error('Please select a valid image file.')
       setProfileImageFile(null)
+      setImagePreview(null)
       return
     }
 
     const maxBytes = 2 * 1024 * 1024
     if (file.size > maxBytes) {
-      setImageError('Image must be 2MB or smaller.')
+      toast.error('Image must be 2MB or smaller.')
       setProfileImageFile(null)
+      setImagePreview(null)
       return
     }
 
-    setImageError('')
     setProfileImageFile(file)
+    const reader = new FileReader()
+    reader.onloadend = () => {
+      setImagePreview(reader.result)
+    }
+    reader.readAsDataURL(file)
   }
 
+  useEffect(() => {
+    if (profileNotice?.text) {
+      if (profileNotice.type === 'success') {
+        toast.success(profileNotice.text)
+      } else if (profileNotice.type === 'error') {
+        toast.error(profileNotice.text)
+      }
+    }
+  }, [profileNotice])
+
   return (
-    <section className="mt-6 rounded-2xl bg-[var(--surface-bg)] px-5 py-6 shadow-sm" style={{ boxShadow: 'var(--surface-shadow)' }}>
+    <section className="mt-6">
       <div className="mx-auto w-full max-w-2xl">
         <h2 className="text-2xl font-bold text-[var(--text-main)]">Update Profile</h2>
 
@@ -72,16 +90,28 @@ function UpdateProfile({ form, setForm, setProfileImageFile, handleProfileSave, 
             />
           </label>
 
-          <label className="grid gap-1 text-sm font-semibold text-[var(--text-muted)]">
+          <div className="grid gap-1 text-sm font-semibold text-[var(--text-muted)]">
             Profile Image
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-              className="rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-muted)] file:mr-3 file:rounded-lg file:border-0 file:bg-[#fff7ed] file:px-3 file:py-1.5 file:text-[#f97316] hover:file:bg-[#ffedd5]"
-            />
-          </label>
-          {imageError && <p className="text-sm font-semibold text-orange-700">{imageError}</p>}
+            <div className="flex items-center gap-4 mt-2">
+              <div className="h-20 w-20 overflow-hidden rounded-full border-2 border-[var(--input-border)] bg-[var(--input-bg)] shrink-0">
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Preview" className="h-full w-full object-cover" />
+                ) : form.profileImageUrl ? (
+                  <img src={form.profileImageUrl} alt="Current Profile" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="grid h-full w-full place-items-center bg-[#f97316] text-2xl font-bold text-white">
+                    {form.username?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
+                )}
+              </div>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageChange}
+                className="w-full rounded-xl border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--text-muted)] file:mr-3 file:rounded-lg file:border-0 file:bg-[#fff7ed] file:px-3 file:py-1.5 file:text-[#f97316] hover:file:bg-[#ffedd5]"
+              />
+            </div>
+          </div>
 
           <p className="text-sm font-semibold text-[var(--text-muted)]">To change password, fill all three password fields below.</p>
 
@@ -123,16 +153,6 @@ function UpdateProfile({ form, setForm, setProfileImageFile, handleProfileSave, 
             {savingProfile ? 'Saving...' : 'Save Changes'}
           </button>
         </form>
-
-        {profileNotice.text && (
-          <p
-            className={`mt-4 rounded-lg px-3 py-2 text-sm font-semibold ${
-              profileNotice.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'
-            }`}
-          >
-            {profileNotice.text}
-          </p>
-        )}
       </div>
     </section>
   )
