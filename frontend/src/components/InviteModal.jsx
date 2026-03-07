@@ -92,7 +92,7 @@ const InviteModal = ({ isOpen, onClose, projectId, onInviteSuccess }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4 animate-in fade-in duration-200">
             <div className="bg-[#1A1A1A] rounded-2xl p-6 w-full max-w-md shadow-2xl border border-[#333]">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-xl font-bold text-white">Invite someone</h2>

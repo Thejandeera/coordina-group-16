@@ -69,9 +69,10 @@ namespace coordina.ProjectManagement.Services
 
             var items = new List<ProjectEntityItemResponse>();
             var queryBuilder = new StringBuilder(@"
-                SELECT Id, Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence, CreatedByUserId
-                FROM ProjectManagementEntities
-                WHERE CreatedByUserId = @UserId");
+                SELECT p.Id, p.Name, p.Description, p.EntityType, p.Status, p.StartDate, p.EndDate, p.Goals, p.MembersCount, p.RaisedAmount, p.GoalAmount, p.PadletEvidence, p.CreatedByUserId
+                FROM ProjectManagementEntities p
+                LEFT JOIN ProjectMembers pm ON p.Id = pm.ProjectId
+                WHERE (p.CreatedByUserId = @UserId OR pm.UserId = @UserId)");
 
             using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
@@ -80,17 +81,17 @@ namespace coordina.ProjectManagement.Services
 
             if (!string.IsNullOrWhiteSpace(search))
             {
-                queryBuilder.Append(" AND (Name LIKE @Search OR Description LIKE @Search)");
+                queryBuilder.Append(" AND (p.Name LIKE @Search OR p.Description LIKE @Search)");
                 command.Parameters.AddWithValue("@Search", $"%{search.Trim()}%");
             }
 
             if (!string.IsNullOrWhiteSpace(type) && !string.Equals(type, "All Types", StringComparison.OrdinalIgnoreCase))
             {
-                queryBuilder.Append(" AND EntityType = @EntityType");
+                queryBuilder.Append(" AND p.EntityType = @EntityType");
                 command.Parameters.AddWithValue("@EntityType", NormalizeType(type));
             }
 
-            queryBuilder.Append(" ORDER BY CreatedAt DESC;");
+            queryBuilder.Append(" GROUP BY p.Id ORDER BY p.CreatedAt DESC;");
             command.CommandText = queryBuilder.ToString();
 
             using var reader = await command.ExecuteReaderAsync();
