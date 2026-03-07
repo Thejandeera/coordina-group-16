@@ -44,12 +44,12 @@ function TaskCard({ task, onClick, onDragStart }) {
             <div className="w-full min-w-0">
                 <div className="flex justify-between items-start gap-2">
                     <h4 className="text-[14.5px] font-bold text-slate-800 leading-snug line-clamp-2 pr-2">
-                        {task.description.split('\n')[0]}
+                        {task.name}
                     </h4>
                 </div>
 
-                {task.description.split('\n').length > 1 && (
-                    <p className="mt-1.5 text-[13px] font-medium text-slate-500 line-clamp-1 pr-4">{task.description.split('\n')[1]}</p>
+                {task.description && task.description.split('\n').length > 0 && (
+                    <p className="mt-1.5 text-[13px] font-medium text-slate-500 line-clamp-2 pr-4">{task.description}</p>
                 )}
 
                 {hasSubtasks && (
@@ -96,7 +96,7 @@ function BacklogItem({ task, depth = 0, onClick, onEdit, onDelete, onAddSubtask,
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                     <span className={`w-2.5 h-2.5 rounded-full shadow-sm flex-shrink-0 ${getStatusColor(task.status)}`}></span>
                     <span className={`text-[14px] font-bold truncate ${task.status === 'Done' ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
-                        {task.description.split('\n')[0]}
+                        {task.name}
                     </span>
                 </div>
 
@@ -121,11 +121,13 @@ function BacklogItem({ task, depth = 0, onClick, onEdit, onDelete, onAddSubtask,
                         </button>
                         {activeMenuId === `backlog-${task.id}` && (
                             <div className="absolute right-0 top-full mt-1 w-40 rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl z-30 animate-in fade-in zoom-in-95 duration-100">
-                                <button onClick={() => { setActiveMenuId(null); onAddSubtask(task); }} className="w-full px-4 py-1.5 text-left text-[12px] font-bold text-emerald-600 flex items-center gap-2 hover:bg-emerald-50">
-                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path></svg>
-                                    Add Subtask
-                                </button>
-                                <button onClick={() => { setActiveMenuId(null); onEdit(task); }} className="w-full px-4 py-1.5 text-left text-[12px] font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-600 mt-1 border-t border-slate-100 pt-1.5">Edit Detail</button>
+                                {depth === 0 && (
+                                    <button onClick={() => { setActiveMenuId(null); onAddSubtask(task); }} className="w-full px-4 py-1.5 text-left text-[12px] font-bold text-emerald-600 flex items-center gap-2 hover:bg-emerald-50">
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path></svg>
+                                        Add Subtask
+                                    </button>
+                                )}
+                                <button onClick={() => { setActiveMenuId(null); onEdit(task); }} className={`w-full px-4 py-1.5 text-left text-[12px] font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-600 ${depth === 0 ? 'mt-1 border-t border-slate-100 pt-1.5' : ''}`}>Edit Detail</button>
                                 <button onClick={() => { setActiveMenuId(null); onDelete(task.id); }} className="w-full px-4 py-1.5 text-left text-[12px] font-bold text-rose-600 hover:bg-rose-50">Delete Task</button>
                             </div>
                         )}
@@ -221,7 +223,8 @@ function Tasks({ projectId }) {
 
         const formData = new FormData(e.currentTarget)
         const payload = {
-            description: formData.get('description'),
+            name: formData.get('name'),
+            description: formData.get('description') || null,
             status: formData.get('status'),
             priority: Number(formData.get('priority')),
             dueDate: formData.get('dueDate') || null
@@ -310,6 +313,7 @@ function Tasks({ projectId }) {
 
         try {
             const payload = {
+                name: taskToMove.name,
                 description: taskToMove.description,
                 priority: taskToMove.priority,
                 dueDate: taskToMove.dueDate ? new Date(taskToMove.dueDate).toISOString().slice(0, 10) : null,
@@ -448,7 +452,7 @@ function Tasks({ projectId }) {
                                 <div className="flex items-center gap-3">
                                     <span className={`w-3 h-3 rounded-full shadow-sm ${getStatusColor(viewingTask.status)}`}></span>
                                     <h2 className="text-2xl sm:text-3xl font-black text-slate-800 leading-tight">
-                                        {viewingTask.description.split('\n')[0]}
+                                        {viewingTask.name}
                                     </h2>
                                 </div>
                                 <button onClick={() => setViewingTask(null)} className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 transition-colors">
@@ -474,27 +478,31 @@ function Tasks({ projectId }) {
                                 </div>
                             </div>
 
-                            <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 mb-8 min-h-[100px]">
-                                <h3 className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2">Details</h3>
-                                <p className="text-[15px] font-medium text-slate-700 leading-relaxed whitespace-pre-wrap">
-                                    {viewingTask.description}
-                                </p>
-                            </div>
+                            {viewingTask.description && (
+                                <div className="bg-slate-50 rounded-2xl p-5 border border-slate-100 mb-8 min-h-[100px]">
+                                    <h3 className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2">Details</h3>
+                                    <p className="text-[15px] font-medium text-slate-700 leading-relaxed whitespace-pre-wrap">
+                                        {viewingTask.description}
+                                    </p>
+                                </div>
+                            )}
 
                             <div className="border border-slate-200 rounded-2xl overflow-hidden mb-4">
                                 <div className="bg-slate-50 px-5 py-3 border-b border-slate-200 flex items-center justify-between">
                                     <h3 className="text-[14px] font-extrabold text-slate-700">Subtasks ({viewingTask.subtasks?.length || 0})</h3>
-                                    <button onClick={() => { setViewingTask(null); openNewTask(viewingTask); }} className="text-[12px] font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1">
-                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path></svg>
-                                        Add
-                                    </button>
+                                    {!viewingTask.parentTaskId && (
+                                        <button onClick={() => { setViewingTask(null); openNewTask(viewingTask); }} className="text-[12px] font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1">
+                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path></svg>
+                                            Add
+                                        </button>
+                                    )}
                                 </div>
                                 <div className="p-4 bg-white flex flex-col gap-2">
                                     {viewingTask.subtasks && viewingTask.subtasks.map(st => (
                                         <div key={st.id} className="group flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50 transition-colors">
                                             <div className="flex items-center gap-3">
                                                 <span className={`w-2 h-2 rounded-full flex-shrink-0 ${getStatusColor(st.status)}`}></span>
-                                                <span className={`text-[14px] font-bold ${st.status === 'Done' ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{st.description.split('\n')[0]}</span>
+                                                <span className={`text-[14px] font-bold ${st.status === 'Done' ? 'text-slate-400 line-through' : 'text-slate-700'}`}>{st.name}</span>
                                             </div>
                                             <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${getPriorityColor(st.priority)}`}>{getPriorityText(st.priority)}</span>
                                         </div>
@@ -539,13 +547,24 @@ function Tasks({ projectId }) {
 
                         <form onSubmit={handleSaveTask} className="flex flex-col gap-5">
                             <label className="flex flex-col gap-2">
-                                <span className="text-[13px] font-extrabold text-slate-500 uppercase tracking-wider">Description / Title</span>
+                                <span className="text-[13px] font-extrabold text-slate-500 uppercase tracking-wider">Task Name *</span>
+                                <input
+                                    type="text"
+                                    name="name"
+                                    defaultValue={editingTask.name || ''}
+                                    required
+                                    placeholder="Task title"
+                                    className="h-12 w-full rounded-xl border-2 border-slate-100 bg-slate-50 px-4 text-[15px] outline-none focus:border-blue-500 focus:bg-white transition-all font-bold text-slate-800"
+                                />
+                            </label>
+
+                            <label className="flex flex-col gap-2">
+                                <span className="text-[13px] font-extrabold text-slate-500 uppercase tracking-wider">Description (Optional)</span>
                                 <textarea
                                     name="description"
                                     defaultValue={editingTask.description || ''}
-                                    required
-                                    placeholder="What needs to be done?"
-                                    className="min-h-[120px] w-full rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 text-[15px] outline-none focus:border-blue-500 focus:bg-white transition-all font-semibold text-slate-800 resize-y placeholder:font-medium placeholder:text-slate-400"
+                                    placeholder="Add task details, links, or notes..."
+                                    className="min-h-[100px] w-full rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 text-[15px] outline-none focus:border-blue-500 focus:bg-white transition-all font-semibold text-slate-800 resize-y placeholder:font-medium placeholder:text-slate-400"
                                 />
                             </label>
 

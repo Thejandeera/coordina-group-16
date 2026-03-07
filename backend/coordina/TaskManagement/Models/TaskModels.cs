@@ -8,8 +8,10 @@ namespace coordina.TaskManagement.Models
         public long ProjectId { get; set; }
 
         [Required]
-        [MinLength(1, ErrorMessage = "Description cannot be empty.")]
-        public string Description { get; set; } = string.Empty;
+        [MinLength(1, ErrorMessage = "Name cannot be empty.")]
+        public string Name { get; set; } = string.Empty;
+
+        public string? Description { get; set; }
 
         public DateTime? DueDate { get; set; }
 
@@ -26,8 +28,10 @@ namespace coordina.TaskManagement.Models
     public class UpdateTaskRequest
     {
         [Required]
-        [MinLength(1, ErrorMessage = "Description cannot be empty.")]
-        public string Description { get; set; } = string.Empty;
+        [MinLength(1, ErrorMessage = "Name cannot be empty.")]
+        public string Name { get; set; } = string.Empty;
+
+        public string? Description { get; set; }
 
         public DateTime? DueDate { get; set; }
 
@@ -45,7 +49,8 @@ namespace coordina.TaskManagement.Models
         public long ProjectId { get; set; }
         public long AssigneeId { get; set; } // The ID of the user who created it, based on requirements
         public string AssigneeInitials { get; set; } = string.Empty; // Just for display purpopse
-        public string Description { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
         public DateTime? DueDate { get; set; }
         public string Status { get; set; } = string.Empty;
         public int Priority { get; set; }
