@@ -77,7 +77,7 @@ namespace coordina.TaskManagement.Controllers
             }
             catch (Exception ex)
             {
-                 return StatusCode(500, new { message = "An error occurred while creating the task.", detail = ex.Message });
+                return StatusCode(500, new { message = "An error occurred while creating the task.", detail = ex.Message });
             }
         }
 
@@ -118,7 +118,7 @@ namespace coordina.TaskManagement.Controllers
             }
             catch (Exception ex)
             {
-                 return BadRequest(new { message = ex.Message });
+                return BadRequest(new { message = ex.Message });
             }
         }
     }

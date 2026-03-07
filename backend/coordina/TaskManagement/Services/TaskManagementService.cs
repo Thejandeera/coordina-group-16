@@ -23,14 +23,14 @@ namespace coordina.TaskManagement.Services
 
             using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
-            
+
             // First check if project exists
             const string checkProjectQuery = "SELECT COUNT(*) FROM ProjectManagementEntities WHERE Id = @ProjectId;";
             using var checkProjectCmd = new NpgsqlCommand(checkProjectQuery, connection);
             checkProjectCmd.Parameters.AddWithValue("@ProjectId", request.ProjectId);
             if (Convert.ToInt32(await checkProjectCmd.ExecuteScalarAsync()) == 0)
             {
-                 throw new ArgumentException("Associated project not found.");
+                throw new ArgumentException("Associated project not found.");
             }
 
             // Verify parent task if specified
@@ -72,7 +72,7 @@ namespace coordina.TaskManagement.Services
             string initials = "U";
             if (!string.IsNullOrWhiteSpace(userUsername))
             {
-                 initials = userUsername.Substring(0, Math.Min(2, userUsername.Length)).ToUpperInvariant();
+                initials = userUsername.Substring(0, Math.Min(2, userUsername.Length)).ToUpperInvariant();
             }
 
             using var insertCommand = new NpgsqlCommand(insertQuery, connection);
@@ -93,7 +93,7 @@ namespace coordina.TaskManagement.Services
 
         public async Task DeleteTaskAsync(long taskId)
         {
-             await EnsureTableAsync();
+            await EnsureTableAsync();
 
             using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
@@ -136,7 +136,7 @@ namespace coordina.TaskManagement.Services
 
         public async Task<IReadOnlyList<TaskResponse>> GetTasksByProjectIdAsync(long projectId)
         {
-           await EnsureTableAsync();
+            await EnsureTableAsync();
 
             var items = new List<TaskResponse>();
             const string query = @"
