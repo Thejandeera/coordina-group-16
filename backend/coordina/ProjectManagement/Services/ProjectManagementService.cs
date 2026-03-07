@@ -145,6 +145,15 @@ namespace coordina.ProjectManagement.Services
 
             var insertedId = Convert.ToInt64(await insertCommand.ExecuteScalarAsync(), CultureInfo.InvariantCulture);
 
+            const string addAdminQuery = @"
+                INSERT INTO ProjectMembers (ProjectId, UserId, Role, JoinedAt)
+                VALUES (@ProjectId, @UserId, 'Admin', CURRENT_TIMESTAMP AT TIME ZONE 'UTC');";
+            
+            using var adminCommand = new NpgsqlCommand(addAdminQuery, connection);
+            adminCommand.Parameters.AddWithValue("@ProjectId", insertedId);
+            adminCommand.Parameters.AddWithValue("@UserId", userId);
+            await adminCommand.ExecuteNonQueryAsync();
+
             const string fetchQuery = @"
                 SELECT Id, Name, Description, EntityType, Status, StartDate, EndDate, Goals, MembersCount, RaisedAmount, GoalAmount, PadletEvidence, CreatedByUserId
                 FROM ProjectManagementEntities
@@ -323,7 +332,40 @@ namespace coordina.ProjectManagement.Services
             }
             catch (Exception)
             {
-                // Ignore if error, it might mean the syntax isn't perfectly supported on this MySQL version or column exists via other means
+                // Ignore if error
+            }
+
+            const string membersQuery = @"
+                CREATE TABLE IF NOT EXISTS ProjectMembers (
+                    Id BIGSERIAL PRIMARY KEY,
+                    ProjectId BIGINT NOT NULL,
+                    UserId BIGINT NOT NULL,
+                    Role VARCHAR(20) NOT NULL,
+                    JoinedAt TIMESTAMP NOT NULL,
+                    UNIQUE(ProjectId, UserId)
+                );";
+
+            using var membersCommand = new NpgsqlCommand(membersQuery, connection);
+            await membersCommand.ExecuteNonQueryAsync();
+
+            // Backward compatibility migration: assign Admin role to legacy creators
+            try
+            {
+                const string migrateCreatorsQuery = @"
+                    INSERT INTO ProjectMembers (ProjectId, UserId, Role, JoinedAt)
+                    SELECT Id, CreatedByUserId, 'Admin', CreatedAt
+                    FROM ProjectManagementEntities p
+                    WHERE CreatedByUserId IS NOT NULL
+                    AND NOT EXISTS (
+                        SELECT 1 FROM ProjectMembers pm 
+                        WHERE pm.ProjectId = p.Id AND pm.UserId = p.CreatedByUserId
+                    );";
+                using var migrateCmd = new NpgsqlCommand(migrateCreatorsQuery, connection);
+                await migrateCmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception)
+            {
+                // Ignore if error during migration
             }
         }
 
@@ -426,9 +468,94 @@ namespace coordina.ProjectManagement.Services
             }
             catch (Exception ex)
             {
-                // Silently swallow logging errors so they never block the main Create/Update flow
                 Console.WriteLine($"Failed to log activity: {ex.Message}");
             }
+        }
+
+        public async Task InviteUserAsync(long projectId, long inviterUserId, InviteMemberRequest request)
+        {
+            await EnsureTableAsync();
+
+            using var connection = new NpgsqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            const string checkProjectQuery = "SELECT COUNT(1) FROM ProjectManagementEntities WHERE Id = @ProjectId;";
+            using var checkProjectCmd = new NpgsqlCommand(checkProjectQuery, connection);
+            checkProjectCmd.Parameters.AddWithValue("@ProjectId", projectId);
+            if (Convert.ToInt32(await checkProjectCmd.ExecuteScalarAsync()) == 0)
+            {
+                 throw new ArgumentException("Associated project not found.");
+            }
+
+            const string checkAdminQuery = "SELECT Role FROM ProjectMembers WHERE ProjectId = @ProjectId AND UserId = @UserId LIMIT 1;";
+            using var checkAdminCmd = new NpgsqlCommand(checkAdminQuery, connection);
+            checkAdminCmd.Parameters.AddWithValue("@ProjectId", projectId);
+            checkAdminCmd.Parameters.AddWithValue("@UserId", inviterUserId);
+            var inviterRole = await checkAdminCmd.ExecuteScalarAsync();
+            if (inviterRole == null || inviterRole.ToString() != "Admin")
+            {
+                 throw new UnauthorizedAccessException("Only Admins can invite new members to the project.");
+            }
+
+            // Upsert the member (if they exist, update role; if not, insert)
+            const string insertMemberQuery = @"
+                INSERT INTO ProjectMembers (ProjectId, UserId, Role, JoinedAt)
+                VALUES (@ProjectId, @UserId, @Role, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                ON CONFLICT (ProjectId, UserId)
+                DO UPDATE SET Role = EXCLUDED.Role;";
+
+            using var insertCmd = new NpgsqlCommand(insertMemberQuery, connection);
+            insertCmd.Parameters.AddWithValue("@ProjectId", projectId);
+            insertCmd.Parameters.AddWithValue("@UserId", request.UserId);
+            insertCmd.Parameters.AddWithValue("@Role", request.Role);
+            await insertCmd.ExecuteNonQueryAsync();
+
+            const string updateMembersCountQuery = @"
+                UPDATE ProjectManagementEntities 
+                SET MembersCount = (SELECT COUNT(*) FROM ProjectMembers WHERE ProjectId = @ProjectId) 
+                WHERE Id = @ProjectId;";
+            
+            using var updateCountCmd = new NpgsqlCommand(updateMembersCountQuery, connection);
+            updateCountCmd.Parameters.AddWithValue("@ProjectId", projectId);
+            await updateCountCmd.ExecuteNonQueryAsync();
+        }
+
+        public async Task<IReadOnlyList<ProjectMemberResponse>> GetProjectMembersAsync(long projectId)
+        {
+            await EnsureTableAsync();
+
+            var members = new List<ProjectMemberResponse>();
+            using var connection = new NpgsqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            const string query = @"
+                SELECT pm.Id, pm.ProjectId, pm.UserId, pm.Role, pm.JoinedAt,
+                       u.Username, u.Email, u.ProfileImageUrl
+                FROM ProjectMembers pm
+                JOIN Users u ON pm.UserId = u.Id
+                WHERE pm.ProjectId = @ProjectId
+                ORDER BY pm.JoinedAt ASC;";
+
+            using var command = new NpgsqlCommand(query, connection);
+            command.Parameters.AddWithValue("@ProjectId", projectId);
+
+            using var reader = await command.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                members.Add(new ProjectMemberResponse
+                {
+                    Id = Convert.ToInt64(reader["Id"], CultureInfo.InvariantCulture),
+                    ProjectId = Convert.ToInt64(reader["ProjectId"], CultureInfo.InvariantCulture),
+                    UserId = Convert.ToInt64(reader["UserId"], CultureInfo.InvariantCulture),
+                    Role = reader["Role"].ToString() ?? "Participant",
+                    JoinedAt = Convert.ToDateTime(reader["JoinedAt"], CultureInfo.InvariantCulture),
+                    Username = reader["Username"].ToString() ?? string.Empty,
+                    Email = reader["Email"].ToString() ?? string.Empty,
+                    ProfileImageUrl = reader["ProfileImageUrl"] == DBNull.Value ? null : reader["ProfileImageUrl"].ToString()
+                });
+            }
+
+            return members;
         }
     }
 }

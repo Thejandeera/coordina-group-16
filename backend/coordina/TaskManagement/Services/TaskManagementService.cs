@@ -33,6 +33,12 @@ namespace coordina.TaskManagement.Services
                 throw new ArgumentException("Associated project not found.");
             }
 
+            var role = await GetProjectRoleAsync(connection, request.ProjectId, userId);
+            if (role != "Admin" && role != "Organizer")
+            {
+                throw new UnauthorizedAccessException("You do not have permission to create tasks in this project.");
+            }
+
             // Verify parent task if specified
             if (request.ParentTaskId.HasValue)
             {
@@ -91,12 +97,20 @@ namespace coordina.TaskManagement.Services
             return await GetTaskByIdAsync(insertedId);
         }
 
-        public async Task DeleteTaskAsync(long taskId)
+        public async Task DeleteTaskAsync(long userId, long taskId)
         {
             await EnsureTableAsync();
 
             using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
+
+            var projectId = await GetProjectIdForTaskAsync(connection, taskId);
+            var role = await GetProjectRoleAsync(connection, projectId, userId);
+            
+            if (role != "Admin")
+            {
+                throw new UnauthorizedAccessException("Only Admins can delete tasks.");
+            }
 
             const string deleteQuery = @"
                 DELETE FROM TaskEntities
@@ -175,12 +189,20 @@ namespace coordina.TaskManagement.Services
             return rootTasks;
         }
 
-        public async Task<TaskResponse> UpdateTaskAsync(long taskId, UpdateTaskRequest request)
+        public async Task<TaskResponse> UpdateTaskAsync(long userId, long taskId, UpdateTaskRequest request)
         {
             await EnsureTableAsync();
 
             using var connection = new NpgsqlConnection(_connectionString);
             await connection.OpenAsync();
+
+            var projectId = await GetProjectIdForTaskAsync(connection, taskId);
+            var role = await GetProjectRoleAsync(connection, projectId, userId);
+
+            if (role != "Admin" && role != "Organizer")
+            {
+                throw new UnauthorizedAccessException("Only Admins and Organizers can update task details.");
+            }
 
             const string updateQuery = @"
                 UPDATE TaskEntities
@@ -199,6 +221,40 @@ namespace coordina.TaskManagement.Services
             updateCommand.Parameters.AddWithValue("@DueDate", request.DueDate.HasValue ? request.DueDate.Value.Date : DBNull.Value);
             updateCommand.Parameters.AddWithValue("@Status", request.Status);
             updateCommand.Parameters.AddWithValue("@Priority", request.Priority);
+
+            var rowsAffected = await updateCommand.ExecuteNonQueryAsync();
+            if (rowsAffected == 0)
+            {
+                throw new ArgumentException($"Task not found.");
+            }
+
+            return await GetTaskByIdAsync(taskId);
+        }
+
+        public async Task<TaskResponse> PatchTaskStatusAsync(long userId, long taskId, string status)
+        {
+            await EnsureTableAsync();
+
+            using var connection = new NpgsqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            var projectId = await GetProjectIdForTaskAsync(connection, taskId);
+            var role = await GetProjectRoleAsync(connection, projectId, userId);
+
+            if (role != "Admin" && role != "Organizer" && role != "Participant")
+            {
+                throw new UnauthorizedAccessException("You do not have permission to update task status.");
+            }
+
+            const string updateQuery = @"
+                UPDATE TaskEntities
+                SET Status = @Status,
+                    UpdatedAt = CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
+                WHERE Id = @Id;";
+
+            using var updateCommand = new NpgsqlCommand(updateQuery, connection);
+            updateCommand.Parameters.AddWithValue("@Id", taskId);
+            updateCommand.Parameters.AddWithValue("@Status", status);
 
             var rowsAffected = await updateCommand.ExecuteNonQueryAsync();
             if (rowsAffected == 0)
@@ -265,6 +321,32 @@ namespace coordina.TaskManagement.Services
                 return dateOnly.ToDateTime(TimeOnly.MinValue);
             }
             return Convert.ToDateTime(value, CultureInfo.InvariantCulture).Date;
+        }
+
+        private static async Task<long> GetProjectIdForTaskAsync(NpgsqlConnection connection, long taskId)
+        {
+            const string query = "SELECT ProjectId FROM TaskEntities WHERE Id = @Id;";
+            using var command = new NpgsqlCommand(query, connection);
+            command.Parameters.AddWithValue("@Id", taskId);
+            var result = await command.ExecuteScalarAsync();
+            if (result == null) throw new ArgumentException("Task not found.");
+            return Convert.ToInt64(result, CultureInfo.InvariantCulture);
+        }
+
+        private static async Task<string> GetProjectRoleAsync(NpgsqlConnection connection, long projectId, long userId)
+        {
+            const string query = "SELECT Role FROM ProjectMembers WHERE ProjectId = @ProjectId AND UserId = @UserId LIMIT 1;";
+            using var command = new NpgsqlCommand(query, connection);
+            command.Parameters.AddWithValue("@ProjectId", projectId);
+            command.Parameters.AddWithValue("@UserId", userId);
+            
+            var result = await command.ExecuteScalarAsync();
+            if (result == null)
+            {
+                throw new UnauthorizedAccessException("You are not a member of this project.");
+            }
+
+            return result.ToString() ?? "Viewer";
         }
     }
 }

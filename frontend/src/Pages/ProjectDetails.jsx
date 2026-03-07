@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Tasks from '../components/Tasks'
+import InviteModal from '../components/InviteModal'
+import { authFetch, readJsonSafe } from '../lib/authClient'
 
 const badgeStyles = {
     Project: 'bg-blue-100 text-blue-700',
@@ -14,7 +16,51 @@ const badgeStyles = {
 function ProjectDetails({ projectId, items, loading }) {
     const navigate = useNavigate()
     const [activeTab, setActiveTab] = useState('Overview')
+    const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+    const [userRole, setUserRole] = useState('Viewer')
+    const [members, setMembers] = useState([])
     const project = useMemo(() => items.find((item) => String(item.id) === String(projectId)), [items, projectId])
+
+    const fetchMembersAndRole = async () => {
+        if (!project) return;
+        try {
+            const response = await authFetch(`/api/project-management/${project.id}/members`);
+
+            if (response.ok) {
+                const data = await response.json();
+                setMembers(data);
+
+                // Get user ID from sessionStorage
+                const userDataStr = sessionStorage.getItem('userData');
+                if (userDataStr) {
+                    const userData = JSON.parse(userDataStr);
+                    const currentUserId = userData.id;
+                    console.log("Extracted currentUserId from session:", currentUserId);
+                    console.log("Project Members:", data);
+
+                    const myMember = data.find(m => String(m.userId) === String(currentUserId));
+                    console.log("Matched Member:", myMember);
+                    if (myMember) {
+                        setUserRole(myMember.role);
+                    } else {
+                        // If they are not in the list (e.g., they created the project just now and migration hasn't synced on the frontend side)
+                        // or any other edge case, default to Viewer (or we could fetch if they are the creator)
+                        if (project.createdByUserId && String(project.createdByUserId) === String(currentUserId)) {
+                            setUserRole('Admin');
+                        } else {
+                            setUserRole('Viewer');
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch project members', err);
+        }
+    };
+
+    useEffect(() => {
+        fetchMembersAndRole();
+    }, [project]);
 
     if (loading) {
         return <div className="p-8 animate-pulse text-slate-500 font-semibold">Loading details...</div>
@@ -55,12 +101,17 @@ function ProjectDetails({ projectId, items, loading }) {
                     </div>
                 </div>
 
-                <button className="flex min-w-[100px] items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 h-[42px]">
-                    <svg className="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                    </svg>
-                    Invite
-                </button>
+                {userRole === 'Admin' && (
+                    <button
+                        onClick={() => setIsInviteModalOpen(true)}
+                        className="flex min-w-[100px] items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 h-[42px]"
+                    >
+                        <svg className="h-5 w-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                        </svg>
+                        Invite
+                    </button>
+                )}
             </div>
 
             <div className="mt-8 flex gap-1 rounded-xl bg-slate-100/70 p-1.5 w-max border border-slate-200/50">
@@ -110,7 +161,7 @@ function ProjectDetails({ projectId, items, loading }) {
                             { value: '3', label: 'Tasks' },
                             { value: '0', label: 'Completed' },
                             { value: '0', label: 'Forms' },
-                            { value: String(project.membersCount ?? '3'), label: 'Members' },
+                            { value: String(members.length > 0 ? members.length : (project.membersCount ?? '3')), label: 'Members' },
                         ].map((stat, idx) => (
                             <div key={idx} className="rounded-[14px] border border-slate-200 bg-white p-6 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] text-center flex flex-col justify-center gap-2">
                                 <p className="text-[34px] font-black text-slate-900 leading-none">{stat.value}</p>
@@ -122,7 +173,7 @@ function ProjectDetails({ projectId, items, loading }) {
             )}
 
             {activeTab === 'Tasks' && (
-                <Tasks projectId={project.id} />
+                <Tasks projectId={project.id} userRole={userRole} />
             )}
 
             {activeTab !== 'Overview' && activeTab !== 'Tasks' && (
@@ -130,6 +181,13 @@ function ProjectDetails({ projectId, items, loading }) {
                     <p className="text-lg font-bold text-slate-400">{activeTab} section coming soon.</p>
                 </div>
             )}
+
+            <InviteModal
+                isOpen={isInviteModalOpen}
+                onClose={() => setIsInviteModalOpen(false)}
+                projectId={project.id}
+                onInviteSuccess={fetchMembersAndRole}
+            />
         </section>
     )
 }

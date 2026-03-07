@@ -19,14 +19,15 @@ const getStatusColor = (status) => {
     return 'bg-slate-300 shadow-slate-300/20'
 }
 
-function TaskCard({ task, onClick, onDragStart }) {
+function TaskCard({ task, onClick, onDragStart, userRole }) {
     const hasSubtasks = task.subtasks && task.subtasks.length > 0;
     const completedSubtasks = hasSubtasks ? task.subtasks.filter(s => s.status === 'Done').length : 0;
+    const canDrag = userRole !== 'Viewer';
 
     return (
         <article
-            draggable
-            onDragStart={(e) => onDragStart(e, task)}
+            draggable={canDrag}
+            onDragStart={(e) => canDrag && onDragStart(e, task)}
             onClick={() => onClick(task)}
             className="group relative cursor-pointer rounded-[14px] border border-slate-200 bg-white p-4 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)] hover:border-blue-400 hover:shadow-lg hover:-translate-y-0.5 transition-all w-full text-left flex gap-3"
         >
@@ -85,7 +86,10 @@ function TaskCard({ task, onClick, onDragStart }) {
     )
 }
 
-function BacklogItem({ task, depth = 0, onClick, onEdit, onDelete, onAddSubtask, activeMenuId, setActiveMenuId }) {
+function BacklogItem({ task, depth = 0, onClick, onEdit, onDelete, onAddSubtask, activeMenuId, setActiveMenuId, userRole }) {
+    const canEdit = userRole === 'Admin' || userRole === 'Organizer';
+    const canDelete = userRole === 'Admin';
+    const showMenu = canEdit || canDelete;
     return (
         <div className={`${depth > 0 ? 'ml-6 mt-2 relative before:absolute before:-left-3 before:top-4 before:w-3 before:h-px before:bg-slate-200' : 'mt-3'} transition-all`}>
             {depth > 0 && <div className="absolute -left-3 top-0 bottom-0 w-px bg-slate-200"></div>}
@@ -112,26 +116,32 @@ function BacklogItem({ task, depth = 0, onClick, onEdit, onDelete, onAddSubtask,
                         <span className="w-20"></span>
                     )}
 
-                    <div className="relative" onClick={(e) => e.stopPropagation()}>
-                        <button
-                            onClick={() => setActiveMenuId(activeMenuId === `backlog-${task.id}` ? null : `backlog-${task.id}`)}
-                            className="p-1 rounded-md text-slate-400 hover:bg-slate-200/60 transition-colors"
-                        >
-                            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
-                        </button>
-                        {activeMenuId === `backlog-${task.id}` && (
-                            <div className="absolute right-0 top-full mt-1 w-40 rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl z-30 animate-in fade-in zoom-in-95 duration-100">
-                                {depth === 0 && (
-                                    <button onClick={() => { setActiveMenuId(null); onAddSubtask(task); }} className="w-full px-4 py-1.5 text-left text-[12px] font-bold text-emerald-600 flex items-center gap-2 hover:bg-emerald-50">
-                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path></svg>
-                                        Add Subtask
-                                    </button>
-                                )}
-                                <button onClick={() => { setActiveMenuId(null); onEdit(task); }} className={`w-full px-4 py-1.5 text-left text-[12px] font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-600 ${depth === 0 ? 'mt-1 border-t border-slate-100 pt-1.5' : ''}`}>Edit Detail</button>
-                                <button onClick={() => { setActiveMenuId(null); onDelete(task.id); }} className="w-full px-4 py-1.5 text-left text-[12px] font-bold text-rose-600 hover:bg-rose-50">Delete Task</button>
-                            </div>
-                        )}
-                    </div>
+                    {showMenu && (
+                        <div className="relative" onClick={(e) => e.stopPropagation()}>
+                            <button
+                                onClick={() => setActiveMenuId(activeMenuId === `backlog-${task.id}` ? null : `backlog-${task.id}`)}
+                                className="p-1 rounded-md text-slate-400 hover:bg-slate-200/60 transition-colors"
+                            >
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
+                            </button>
+                            {activeMenuId === `backlog-${task.id}` && (
+                                <div className="absolute right-0 top-full mt-1 w-40 rounded-xl border border-slate-200 bg-white py-1.5 shadow-xl z-30 animate-in fade-in zoom-in-95 duration-100">
+                                    {depth === 0 && canEdit && (
+                                        <button onClick={() => { setActiveMenuId(null); onAddSubtask(task); }} className="w-full px-4 py-1.5 text-left text-[12px] font-bold text-emerald-600 flex items-center gap-2 hover:bg-emerald-50">
+                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path></svg>
+                                            Add Subtask
+                                        </button>
+                                    )}
+                                    {canEdit && (
+                                        <button onClick={() => { setActiveMenuId(null); onEdit(task); }} className={`w-full px-4 py-1.5 text-left text-[12px] font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-600 ${depth === 0 ? 'mt-1 border-t border-slate-100 pt-1.5' : ''}`}>Edit Detail</button>
+                                    )}
+                                    {canDelete && (
+                                        <button onClick={() => { setActiveMenuId(null); onDelete(task.id); }} className="w-full px-4 py-1.5 text-left text-[12px] font-bold text-rose-600 hover:bg-rose-50">Delete Task</button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -146,13 +156,14 @@ function BacklogItem({ task, depth = 0, onClick, onEdit, onDelete, onAddSubtask,
                     onAddSubtask={onAddSubtask}
                     activeMenuId={activeMenuId}
                     setActiveMenuId={setActiveMenuId}
+                    userRole={userRole}
                 />
             ))}
         </div>
     )
 }
 
-function Tasks({ projectId }) {
+function Tasks({ projectId, userRole }) {
     const [tasks, setTasks] = useState([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
@@ -359,13 +370,15 @@ function Tasks({ projectId }) {
                     <h2 className="text-xl font-extrabold text-slate-800">Task Board</h2>
                     <p className="text-sm font-medium text-slate-400 mt-0.5">Drag to rearrange, manage your nested items seamlessly.</p>
                 </div>
-                <button
-                    onClick={() => openNewTask()}
-                    className="rounded-xl flex items-center justify-center gap-2 bg-blue-600 px-6 py-3 text-[14px] font-bold text-white shadow-md shadow-blue-600/20 hover:bg-blue-700 hover:-translate-y-0.5 transition-all"
-                >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path></svg>
-                    New Task
-                </button>
+                {(userRole === 'Admin' || userRole === 'Organizer') && (
+                    <button
+                        onClick={() => openNewTask()}
+                        className="rounded-xl flex items-center justify-center gap-2 bg-blue-600 px-6 py-3 text-[14px] font-bold text-white shadow-md shadow-blue-600/20 hover:bg-blue-700 hover:-translate-y-0.5 transition-all"
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path></svg>
+                        New Task
+                    </button>
+                )}
             </div>
 
             <div className="grid gap-6 md:grid-cols-3 xl:gap-8 items-start">
@@ -382,7 +395,7 @@ function Tasks({ projectId }) {
                         </span>
                     </div>
                     <div className="flex flex-col gap-4 min-h-[150px]">
-                        {todoTasks.map(task => <TaskCard key={task.id} task={task} onClick={viewTask} onDragStart={onDragStart} />)}
+                        {todoTasks.map(task => <TaskCard key={task.id} task={task} onClick={viewTask} onDragStart={onDragStart} userRole={userRole} />)}
                         {todoTasks.length === 0 && <div className="border border-dashed border-slate-300 rounded-xl h-24 flex items-center justify-center text-slate-400 font-bold text-sm">Drop tasks here</div>}
                     </div>
                 </div>
@@ -400,7 +413,7 @@ function Tasks({ projectId }) {
                         </span>
                     </div>
                     <div className="flex flex-col gap-4 min-h-[150px]">
-                        {inProgressTasks.map(task => <TaskCard key={task.id} task={task} onClick={viewTask} onDragStart={onDragStart} />)}
+                        {inProgressTasks.map(task => <TaskCard key={task.id} task={task} onClick={viewTask} onDragStart={onDragStart} userRole={userRole} />)}
                         {inProgressTasks.length === 0 && <div className="border border-dashed border-slate-300 rounded-xl h-24 flex items-center justify-center text-slate-400 font-bold text-sm">Drop tasks here</div>}
                     </div>
                 </div>
@@ -418,7 +431,7 @@ function Tasks({ projectId }) {
                         </span>
                     </div>
                     <div className="flex flex-col gap-4 min-h-[150px]">
-                        {doneTasks.map(task => <TaskCard key={task.id} task={task} onClick={viewTask} onDragStart={onDragStart} />)}
+                        {doneTasks.map(task => <TaskCard key={task.id} task={task} onClick={viewTask} onDragStart={onDragStart} userRole={userRole} />)}
                         {doneTasks.length === 0 && <div className="border border-dashed border-slate-300 rounded-xl h-24 flex items-center justify-center text-slate-400 font-bold text-sm">Drop tasks here</div>}
                     </div>
                 </div>
@@ -433,7 +446,7 @@ function Tasks({ projectId }) {
                     {tasks.length === 0 ? (
                         <p className="text-slate-500 font-semibold text-center py-6">No tasks added yet.</p>
                     ) : (
-                        tasks.map(task => <BacklogItem key={task.id} task={task} depth={0} onClick={viewTask} onEdit={openEditTask} onDelete={deleteSelectedTask} onAddSubtask={openNewTask} activeMenuId={activeMenuId} setActiveMenuId={setActiveMenuId} />)
+                        tasks.map(task => <BacklogItem key={task.id} task={task} depth={0} onClick={viewTask} onEdit={openEditTask} onDelete={deleteSelectedTask} onAddSubtask={openNewTask} activeMenuId={activeMenuId} setActiveMenuId={setActiveMenuId} userRole={userRole} />)
                     )}
                 </div>
             </div>
@@ -490,7 +503,7 @@ function Tasks({ projectId }) {
                             <div className="border border-slate-200 rounded-2xl overflow-hidden mb-4">
                                 <div className="bg-slate-50 px-5 py-3 border-b border-slate-200 flex items-center justify-between">
                                     <h3 className="text-[14px] font-extrabold text-slate-700">Subtasks ({viewingTask.subtasks?.length || 0})</h3>
-                                    {!viewingTask.parentTaskId && (
+                                    {!viewingTask.parentTaskId && (userRole === 'Admin' || userRole === 'Organizer') && (
                                         <button onClick={() => { setViewingTask(null); openNewTask(viewingTask); }} className="text-[12px] font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1">
                                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path></svg>
                                             Add
@@ -514,15 +527,19 @@ function Tasks({ projectId }) {
                             </div>
                         </div>
                         <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
-                            <button onClick={() => { setViewingTask(null); onDelete(viewingTask.id); }} className="px-5 py-2.5 rounded-xl font-bold text-rose-500 hover:bg-rose-100 transition-colors text-[14px] border border-transparent mr-auto">
-                                Delete Task
-                            </button>
+                            {userRole === 'Admin' && (
+                                <button onClick={() => { setViewingTask(null); onDelete(viewingTask.id); }} className="px-5 py-2.5 rounded-xl font-bold text-rose-500 hover:bg-rose-100 transition-colors text-[14px] border border-transparent mr-auto">
+                                    Delete Task
+                                </button>
+                            )}
                             <button onClick={() => setViewingTask(null)} className="px-5 py-2.5 rounded-xl font-bold text-slate-500 hover:bg-slate-200 transition-colors text-[14px]">
                                 Close
                             </button>
-                            <button onClick={() => { setViewingTask(null); openEditTask(viewingTask); }} className="px-6 py-2.5 rounded-xl font-bold text-white bg-blue-600 shadow-sm shadow-blue-500/20 hover:bg-blue-700 hover:-translate-y-0.5 transition-all text-[14px]">
-                                Edit Task
-                            </button>
+                            {(userRole === 'Admin' || userRole === 'Organizer') && (
+                                <button onClick={() => { setViewingTask(null); openEditTask(viewingTask); }} className="px-6 py-2.5 rounded-xl font-bold text-white bg-blue-600 shadow-sm shadow-blue-500/20 hover:bg-blue-700 hover:-translate-y-0.5 transition-all text-[14px]">
+                                    Edit Task
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>

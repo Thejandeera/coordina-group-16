@@ -78,4 +78,26 @@ namespace coordina.ProjectManagement.Models
         [MaxLength(500)]
         public string? PadletEvidence { get; set; }
     }
+
+    public class InviteMemberRequest
+    {
+        [Required]
+        public long UserId { get; set; }
+
+        [Required]
+        [RegularExpression("^(Admin|Organizer|Participant|Viewer)$", ErrorMessage = "Role must be Admin, Organizer, Participant, or Viewer.")]
+        public string Role { get; set; } = "Participant";
+    }
+
+    public class ProjectMemberResponse
+    {
+        public long Id { get; set; }
+        public long ProjectId { get; set; }
+        public long UserId { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string? ProfileImageUrl { get; set; }
+        public string Role { get; set; } = string.Empty;
+        public DateTime JoinedAt { get; set; }
+    }
 }
