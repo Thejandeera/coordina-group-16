@@ -106,7 +106,7 @@ namespace coordina.TaskManagement.Services
 
             var projectId = await GetProjectIdForTaskAsync(connection, taskId);
             var role = await GetProjectRoleAsync(connection, projectId, userId);
-            
+
             if (role != "Admin")
             {
                 throw new UnauthorizedAccessException("Only Admins can delete tasks.");
@@ -339,7 +339,7 @@ namespace coordina.TaskManagement.Services
             using var command = new NpgsqlCommand(query, connection);
             command.Parameters.AddWithValue("@ProjectId", projectId);
             command.Parameters.AddWithValue("@UserId", userId);
-            
+
             var result = await command.ExecuteScalarAsync();
             if (result == null)
             {

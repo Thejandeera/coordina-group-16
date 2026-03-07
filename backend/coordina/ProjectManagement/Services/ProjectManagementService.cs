@@ -149,7 +149,7 @@ namespace coordina.ProjectManagement.Services
             const string addAdminQuery = @"
                 INSERT INTO ProjectMembers (ProjectId, UserId, Role, JoinedAt)
                 VALUES (@ProjectId, @UserId, 'Admin', CURRENT_TIMESTAMP AT TIME ZONE 'UTC');";
-            
+
             using var adminCommand = new NpgsqlCommand(addAdminQuery, connection);
             adminCommand.Parameters.AddWithValue("@ProjectId", insertedId);
             adminCommand.Parameters.AddWithValue("@UserId", userId);
@@ -485,7 +485,7 @@ namespace coordina.ProjectManagement.Services
             checkProjectCmd.Parameters.AddWithValue("@ProjectId", projectId);
             if (Convert.ToInt32(await checkProjectCmd.ExecuteScalarAsync()) == 0)
             {
-                 throw new ArgumentException("Associated project not found.");
+                throw new ArgumentException("Associated project not found.");
             }
 
             const string checkAdminQuery = "SELECT Role FROM ProjectMembers WHERE ProjectId = @ProjectId AND UserId = @UserId LIMIT 1;";
@@ -495,7 +495,7 @@ namespace coordina.ProjectManagement.Services
             var inviterRole = await checkAdminCmd.ExecuteScalarAsync();
             if (inviterRole == null || inviterRole.ToString() != "Admin")
             {
-                 throw new UnauthorizedAccessException("Only Admins can invite new members to the project.");
+                throw new UnauthorizedAccessException("Only Admins can invite new members to the project.");
             }
 
             // Upsert the member (if they exist, update role; if not, insert)
@@ -515,7 +515,7 @@ namespace coordina.ProjectManagement.Services
                 UPDATE ProjectManagementEntities 
                 SET MembersCount = (SELECT COUNT(*) FROM ProjectMembers WHERE ProjectId = @ProjectId) 
                 WHERE Id = @ProjectId;";
-            
+
             using var updateCountCmd = new NpgsqlCommand(updateMembersCountQuery, connection);
             updateCountCmd.Parameters.AddWithValue("@ProjectId", projectId);
             await updateCountCmd.ExecuteNonQueryAsync();
