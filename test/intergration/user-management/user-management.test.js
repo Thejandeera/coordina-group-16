@@ -57,9 +57,9 @@ describe('User Management Integration Tests', () => {
     let driver;
 
     beforeAll(async () => {
-        const service = new chrome.ServiceBuilder('C:\\Users\\HP\\OneDrive\\Desktop\\Coordina\\coordina-group-16\\test\\node_modules\\chromedriver\\lib\\chromedriver\\chromedriver.exe');
+        const chromedriverPath = require('chromedriver').path;
+        const service = new chrome.ServiceBuilder(chromedriverPath);
         const options = new chrome.Options();
-        options.setChromeBinaryPath('C:\\Users\\HP\\AppData\\Local\\Google\\Chrome\\Application\\chrome.exe');
         options.addArguments('--headless=new');
         options.addArguments('--disable-gpu');
         options.addArguments('--no-sandbox');
